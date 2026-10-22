@@ -14,7 +14,7 @@
 
   <div class="oneline"><b>In one sentence</b>rustc checks your Rust code and translates it into LLVM's simple language, then LLVM optimises it and turns it into machine instructions for your CPU.</div>
 
-  <div class="note warn"><b>LLVM is not LLM.</b> An <b>LLM</b> (Large Language Model) is AI like ChatGPT or Claude, and it has nothing to do with how Rust works. <b>LLVM</b> is a compiler toolkit. The name once stood for "Low Level Virtual Machine", but today it's just a name.</div>
+  <div class="note">The name LLVM once stood for "Low Level Virtual Machine". Today it's just the name of the project.</div>
 
   <h2>A compiler in two halves</h2>
   <p>When you run <code>cargo build</code>, your code passes through two big programs:</p>
@@ -103,7 +103,6 @@ rustc -vV                                         # shows your LLVM version</pre
     <h2>Check yourself</h2>
     <details><summary>Which part checks ownership and borrowing: rustc or LLVM?</summary><b>rustc</b>. LLVM knows nothing about Rust's rules. By the time code reaches LLVM, it has already passed every safety check.</details>
     <details><summary>What is LLVM IR?</summary>A simple "middle language" between Rust and machine code. rustc writes it, LLVM reads it, optimises it and turns it into CPU instructions.</details>
-    <details><summary>Is LLVM the same as an LLM?</summary>No. LLVM is a compiler toolkit. An LLM is an AI language model. Unrelated.</details>
     <details><summary>In release mode, <code>foo</code> had no stack frame. Why?</summary>The optimiser kept everything in CPU registers because nothing needed to live in memory. The compiler may skip memory whenever the result is the same.</details>
     <details><summary>Why can UB give different results in debug and release?</summary>The optimiser rewrites code assuming there's no UB. In release it optimises a lot, so a broken assumption has bigger, stranger effects.</details>
     <details><summary>How can Rust run on Solana's virtual machine?</summary>LLVM has a back end that outputs SBF bytecode. rustc's checks are the same, only the final translation changes.</details>
