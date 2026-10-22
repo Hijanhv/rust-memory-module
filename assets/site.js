@@ -17,6 +17,7 @@ const LESSONS = [
   { id: "09-buffer-overflow", num: "2.3", title: "Buffer overflow", blurb: "Write one byte too far and watch a neighbour change.", mins: 15, group: "Lesson 2: Memory bugs" },
   { id: "10-data-race", num: "2.4", title: "Data race", blurb: "Two threads, one counter, lost updates, and how to fix it.", mins: 20, group: "Lesson 2: Memory bugs" },
   { id: "12-mastery", num: "★", title: "Mastery test: Lessons 1 and 2", blurb: "A \"where does it live?\" game and a scored quiz. Get 90% and you own this module.", mins: 20, group: "Prove it" },
+  { id: "13-project", num: "⚙", title: "Project: memscope", blurb: "The Module 1 project: a tool that shows every idea from Lessons 1 and 2 inside a real process.", mins: 40, group: "Prove it" },
   { id: "11-next", num: "✦", title: "Wrap-up and a peek at Lesson 3", blurb: "Optional: a checklist for Lessons 1 and 2, and how safe Rust stops each bug.", mins: 10, group: "Optional: after Lesson 2" },
 ];
 

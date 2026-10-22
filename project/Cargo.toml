@@ -1,0 +1,7 @@
+[package]
+name = "memscope"
+version = "0.1.0"
+edition = "2021"
+description = "See how a Rust process uses memory, and what memory bugs do to it"
+
+[dependencies]

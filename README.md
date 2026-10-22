@@ -12,6 +12,7 @@ Live site: https://rust-memory-module.vercel.app
   - **2.1 to 2.4 Lesson 2: Memory bugs**, including an interactive byte-level buffer overflow.
   - **Mastery test**: a "where does it live?" game and a scored quiz.
 - `lab/`: runnable Rust examples, one per lesson.
+- `project/`: **memscope**, the Module 1 project. A dependency-free CLI that shows every Lesson 1 and 2 idea inside a real process. See [project/README.md](project/README.md).
 
 ## Run the lab
 

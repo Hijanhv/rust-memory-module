@@ -1,0 +1,21 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: project tests
+        run: cargo test --manifest-path project/Cargo.toml
+      - name: project clippy
+        run: cargo clippy --manifest-path project/Cargo.toml --all-targets -- -D warnings
+      - name: project runs
+        run: cargo run --manifest-path project/Cargo.toml -- all
+      - name: lab builds
+        run: cargo build --manifest-path lab/Cargo.toml --examples

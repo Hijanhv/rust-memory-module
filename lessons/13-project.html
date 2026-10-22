@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project: memscope</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main>
+  <div class="kicker">Prove it · Module 1 project</div>
+  <h1>Project: memscope</h1>
+  <p class="lede">One small tool that shows every idea from Lessons 1 and 2 happening inside a real running program. No libraries, just Rust.</p>
+
+  <div class="oneline"><b>In one sentence</b>memscope prints your process's real memory map, logs every heap allocation, and runs each memory bug next to the safe version that stops it.</div>
+
+  <h2>Run it</h2>
+<pre>cd rust-memory-module/project
+cargo run -- map
+cargo run -- all        # everything, in lesson order
+cargo test              # 12 tests that check each lesson's claims</pre>
+
+  <div class="table-wrap"><table>
+    <tr><th>Command</th><th>Shows</th><th>Lesson</th></tr>
+    <tr><td><code>map</code></td><td>A real address from text, rodata, data, bss, heap and stack, with page numbers</td><td><a href="01-virtual-memory.html">1.1</a>, <a href="02-process-layout.html">1.2</a></td></tr>
+    <tr><td><code>stack 8</code></td><td>Each nested call's frame is lower in memory</td><td><a href="03-stack.html">1.3</a></td></tr>
+    <tr><td><code>heap</code></td><td>Every alloc, realloc and free, live</td><td><a href="04-heap.html">1.4</a>, <a href="05-static.html">1.5</a></td></tr>
+    <tr><td><code>sizes</code></td><td>Thin vs fat pointers</td><td><a href="06-on-your-machine.html">1.6</a></td></tr>
+    <tr><td><code>uaf</code></td><td>A freed pointer reading someone else's data</td><td><a href="08-use-after-free.html">2.2</a></td></tr>
+    <tr><td><code>overflow 9</code></td><td>A byte dump of the overflow hitting padding, then the neighbour</td><td><a href="09-buffer-overflow.html">2.3</a></td></tr>
+    <tr><td><code>race</code></td><td>Lost updates next to exact Atomic and Mutex counts</td><td><a href="10-data-race.html">2.4</a></td></tr>
+  </table></div>
+
+  <h2>Real output from my Mac</h2>
+  <h3><code>map</code>: the memory map, for real</h3>
+<pre>Memory map of this process (page size 16384 bytes = 16 KB)
+
+  high addresses
+  +------------------------------------------------------------+
+  | stack  a local variable                        0x16d4eda88 |
+  +------------------------------------------------------------+
+  |            ... 1700 MB gap, mostly unmapped ...            |
+  +------------------------------------------------------------+
+  | heap   the value inside a Box                  0x1030e1230 |
+  | bss    static that starts as zero              0x10298b598 |
+  | data   writable static with a value            0x102988260 |
+  | rodata a string literal's bytes                0x10296aefe |
+  | rodata immutable static array                  0x10296ae50 |
+  | text   the code of a function                  0x1029117a4 |
+  +------------------------------------------------------------+
+  low addresses</pre>
+  <p>That's the exact diagram from Part 1.2, printed by your own program. (Shortened here: the real one also shows each address's page number.)</p>
+
+  <h3><code>heap</code>: watching the allocator</h3>
+<pre>Box::new(5u32), then it goes out of scope
+    alloc      4 bytes  at 0x1022e9310
+    free       4 bytes  at 0x1022e9310
+
+Vec::new() and 9 pushes, then it goes out of scope
+    alloc     16 bytes  at 0x1022e9310
+    realloc   16 -> 32 bytes  0x1022e9310 -> 0x1022e9230  (MOVED, old block freed)
+    realloc   32 -> 64 bytes  0x1022e9230 -> 0x1022e9e80  (MOVED, old block freed)
+    free      64 bytes  at 0x1022e9e80
+
+Vec::with_capacity(9) and 9 pushes (reserve once)
+    alloc     36 bytes  at 0x1022e9e80
+    free      36 bytes  at 0x1022e9e80
+
+let s = "hi";  (a literal: static, no heap)
+    (no heap activity)</pre>
+  <p>Every claim from Part 1.4 is visible: the Box is freed at the end of its scope, the Vec reallocates when it's full, <code>with_capacity</code> allocates exactly once, and a string literal never touches the heap.</p>
+
+  <h3><code>overflow 9</code>: the bytes, one by one</h3>
+<pre>  bytes:  [buffer: 5 bytes] [padding: 3] [neighbour: u64, little-endian]
+  before  [00 00 00 00 00] [00 00 00] [D5 DD 00 00 00 00 00 00]
+  after   [00 01 02 03 04] [05 06 07] [08 DD 00 00 00 00 00 00]
+
+  neighbour: 56789 -> 56584</pre>
+
+  <h2>How the heap logger works</h2>
+  <p>Every Box, Vec and String asks one thing for memory: the <b>global allocator</b>. Rust lets you swap in your own. memscope puts a thin wrapper in front of the system allocator:</p>
+<pre><code>unsafe impl GlobalAlloc for Tracker {
+    unsafe fn alloc(&amp;self, layout: Layout) -> *mut u8 {
+        let p = System.alloc(layout);        // the real allocator does the work
+        record(Event::Alloc { addr: p as usize, size: layout.size() });
+        p
+    }
+    // dealloc and realloc are wrapped the same way
+}
+
+#[global_allocator]
+static ALLOC: Tracker = Tracker;</code></pre>
+  <p>One catch: you can't <code>println!</code> inside <code>alloc</code>, because printing allocates, which calls <code>alloc</code>, which prints... forever. So events go into a fixed-size array (no heap needed) and get printed after recording stops.</p>
+
+  <h2>Three things it found that the lessons don't mention</h2>
+  <ol class="steps">
+    <li><b>UB changes with build mode.</b> <code>cargo run -- uaf</code> reads <b>1234</b>. <code>cargo run --release -- uaf</code> reads <b>1</b> and shows <b>zero</b> heap events: the optimiser deleted the allocations, because it's allowed to assume your code has no UB. Same code, different result. That's Part 2.1 in action.</li>
+    <li><b>Only the main thread's stack is at the top.</b> A test checking "heap is below stack" failed, because <code>cargo test</code> runs each test on a spawned thread, and spawned threads' stacks can be placed below the heap. The Part 1.2 map describes the main thread.</li>
+    <li><b>Growing a Vec doesn't always move it.</b> The allocator can sometimes extend a block in place (you can see <code>String</code> do this: <code>2 -> 8 bytes, grew in place</code>). What's guaranteed is the opposite: a push that fits never moves it.</li>
+  </ol>
+
+  <h2>Make it yours: challenges</h2>
+  <p>Do these yourself. Each one is small and uses only what you've learned.</p>
+  <ol class="steps">
+    <li><b>Easy:</b> add a <code>leak</code> command that does <code>Box::into_raw(Box::new(5))</code> and never frees it. Use <code>trace</code> to show an alloc with no matching free.</li>
+    <li><b>Easy:</b> in <code>heap</code>, add a <code>Vec&lt;u64&gt;</code> next to the <code>Vec&lt;u32&gt;</code>. Predict the allocation sizes before you run it.</li>
+    <li><b>Medium:</b> add a <code>threads</code> command that spawns 3 threads and prints the address of a local in each. Are the stacks near each other? Above or below the heap?</li>
+    <li><b>Medium:</b> add a test that <code>Rc::clone</code> causes <b>no</b> heap allocation (only the counter changes).</li>
+    <li><b>Hard:</b> add a <code>double-free</code> demo with <code>Box::from_raw</code> called twice. What does the tracker record? What does the system do?</li>
+  </ol>
+
+  <div class="quiz">
+    <h2>Check yourself</h2>
+    <details><summary>Why can't the allocator print directly when it's called?</summary>Printing allocates memory, which calls the allocator again: infinite recursion. So it stores events in a fixed array and prints later.</details>
+    <details><summary>Why does <code>overflow</code> write into a <code>#[repr(C)]</code> struct instead of two normal locals?</summary><code>repr(C)</code> fixes the layout (buffer, then padding, then neighbour), so you see the same bytes every run. Normal locals can be placed anywhere the compiler likes.</details>
+    <details><summary>Why did release mode show zero heap events for <code>uaf</code>?</summary>The code contains UB, and the optimiser may assume UB never happens. That let it remove the Box allocations entirely.</details>
+  </div>
+</main>
+<script src="../assets/site.js"></script>
+</body>
+</html>
