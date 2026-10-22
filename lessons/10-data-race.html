@@ -38,6 +38,12 @@
 round 1: expected 8000, got 6151. 1849 updates lost.</pre>
   <p>8 threads × 1000 increments should be 8000. Nearly a quarter vanished on the very first try. Nothing crashed, nothing warned. Just a wrong number. Run it again and you'll get a different wrong number.</p>
 
+  <h2>The lecture's exact code</h2>
+  <p>The lecture's version starts 10 threads, each adding 1 once and then sleeping. I ran it 5 times on my Mac:</p>
+<pre>Final COUNTER (unreliable): 10     (5 runs out of 5)</pre>
+  <p>No lost updates. Why? Each thread does just <b>one</b> increment, and threads start a little apart, so two of them rarely land inside the tiny read-add-write window at the same instant. <b>The bug is still there</b>, it's just rarely visible. That's why the lecture also offers a version that loops until an update is missed, and why the lab uses 8 threads × 1000 increments: more chances to collide, so you see it on the first try.</p>
+  <p>A bug that shows up 1 time in 10,000 is worse than one that shows up every time: it passes your tests and fails in production.</p>
+
   <h2>The safe fixes</h2>
   <p>Remove condition 4 by adding synchronisation:</p>
 <pre><code>use std::sync::atomic::{AtomicUsize, Ordering};

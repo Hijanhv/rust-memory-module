@@ -59,7 +59,7 @@ with_capacity(20): pointer unchanged after 20 pushes? true</pre>
   <h2>Heap trade-offs</h2>
   <div class="table-wrap"><table>
     <tr><th>Good at</th><th>Bad at</th></tr>
-    <tr><td>Data of any size, even unknown until runtime</td><td><b>Slower</b>: the allocator must search for space and keep records</td></tr>
+    <tr><td>Data of any size, even unknown until runtime</td><td><b>Slower</b>: the allocator must find a big enough free block, maybe split or merge blocks, and keep metadata about every allocation</td></tr>
     <tr><td>Can grow and shrink (Vec, String)</td><td><b>Fragmentation</b>: lots of small holes can make big allocations hard</td></tr>
     <tr><td>Can outlive the function that created it</td><td>Ownership gets more complex, especially across threads</td></tr>
     <tr><td>Can be shared (Rc, Arc)</td><td>Scattered data is less cache friendly</td></tr>

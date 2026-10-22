@@ -49,6 +49,7 @@
     static NUMBER: i32 = n;                  // ERROR: n is a runtime stack value
 }</code></pre>
   <p>And changing a static needs <code>static mut</code> plus <code>unsafe</code>, because any thread could touch it at any time. That's exactly the data race in Lecture 2.</p>
+  <p>The safe way to have shared, changeable global state is to put a <b>synchronisation type</b> inside a normal (non-mut) static: an <b>Atomic</b> (<code>static HITS: AtomicUsize = AtomicUsize::new(0);</code>), a <b>Mutex</b> (<code>static LOG: Mutex&lt;Vec&lt;String&gt;&gt; = Mutex::new(Vec::new());</code>), or a <b>OnceLock / OnceCell</b> for a value set once at runtime and then only read (like config loaded from a file).</p>
 
   <div class="note"><b>static vs const.</b> A <code>const</code> is copied into every place you use it (no single address). A <code>static</code> has exactly <b>one</b> fixed address in memory. Use const for plain constants, static when you need one shared location.</div>
 

@@ -47,6 +47,21 @@ println!("not_in_buffer: {}", not_in_buffer);</code></pre>
   </table></div>
   <p>The 6-write case is the important lesson: <b>the program looked correct but had UB</b>. Silent bugs are the worst kind.</p>
 
+  <h2>The lecture's exact code</h2>
+  <p>In the lecture, <code>let not_in_buffer = 56789;</code> has no type, so it's an <b>i32</b> (4 bytes), not the u64 used above. I ran it exactly as written:</p>
+  <div class="table-wrap"><table>
+    <tr><th>Loop</th><th>Debug (<code>cargo run</code>)</th><th>Release (<code>--release</code>)</th></tr>
+    <tr><td><code>0..6</code></td><td>56789</td><td>56789</td></tr>
+    <tr><td><code>0..7</code></td><td>56789</td><td>56789</td></tr>
+    <tr><td><code>0..10</code></td><td><b>2312</b></td><td>56789</td></tr>
+  </table></div>
+  <ul>
+    <li><b>0..6 and 0..7</b>: bytes 5 and 6 landed in padding. Invisible, but still UB.</li>
+    <li><b>0..10 in debug</b>: bytes 8 and 9 overwrote the two lowest bytes of the i32. 56789 is <code>0xDDD5</code>, it became <code>0x0908</code> = <b>2312</b>.</li>
+    <li><b>0..10 in release</b>: unchanged! The optimiser (Part 1.7) saw that <code>not_in_buffer</code> is never changed by normal code, so it printed the constant 56789 without reading memory. It assumed there was no UB.</li>
+    <li>The program finished normally every time. With bigger loops it may not: see below.</li>
+  </ul>
+
   <h2>What if you go further? (7, 10, 64...)</h2>
   <p>Think about what else lives on the stack near the buffer:</p>
   <ul>

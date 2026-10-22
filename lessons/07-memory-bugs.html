@@ -31,6 +31,15 @@
   </table></div>
   <p class="analogy">Analogy: a hotel room. Spatial bug = walking into the room next to yours. Temporal bug = using your key after you checked out (someone else may be staying there now). Data race = two guests booked into the same room, both rearranging the furniture.</p>
 
+  <p>The lecture focuses on three bugs, but there are many more. A few you'll hear about:</p>
+  <ul>
+    <li><b>Double free</b>: freeing the same heap block twice (temporal).</li>
+    <li><b>Dangling pointer</b>: a pointer to something that no longer exists (temporal, it's what leads to use-after-free).</li>
+    <li><b>Null pointer dereference</b>: following a pointer to address 0.</li>
+    <li><b>Reading uninitialised memory</b>: using bytes that were never set.</li>
+    <li><b>Memory leak</b>: never freeing memory. Not UB, and possible even in safe Rust, but it wastes memory.</li>
+  </ul>
+
   <h2>Undefined behaviour (UB)</h2>
   <p>This is the most important idea in the lesson.</p>
   <ol class="steps">

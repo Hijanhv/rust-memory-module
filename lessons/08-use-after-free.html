@@ -31,6 +31,22 @@ new Box lives at 0x102eb93b0, old pointer is 0x102eb93b0
 value after free: 1234</pre>
   <p>Same address. The old pointer, which "should" hold 5, now reads <b>1234</b>, a completely different value that belongs to <code>y</code>. No crash, no error message. In a real program that 1234 could be a password, or the old pointer could be used to <b>write</b> and corrupt <code>y</code>. That's how many real security holes work.</p>
 
+  <h2>The lecture's exact code</h2>
+<pre><code>let x = Box::new(5);
+let raw_x = Box::into_raw(x);    // raw pointer; the destructor is "forgotten"
+unsafe {
+    drop(Box::from_raw(raw_x));  // free it
+    println!("Value after free: {}", *raw_x);   // UB
+}</code></pre>
+  <p>Here there's no second Box, so nothing new claims the spot. What did my Mac print?</p>
+<pre>Value after free: 1297437786     (same in 6 runs, debug and release)</pre>
+  <ol class="steps">
+    <li>It's <b>not 5</b>. Once a block is freed, the allocator is allowed to use those bytes for its <b>own bookkeeping</b> (for example, notes about which blocks are free). You're most likely reading the allocator's private data.</li>
+    <li>The lecture says the value will likely change between runs. On my Mac it didn't. That's not a contradiction: UB promises <b>nothing</b>, not even randomness. A different OS, allocator or Rust version can print something else.</li>
+    <li>An output that looks stable is the most dangerous kind, because it makes the bug look like normal behaviour.</li>
+  </ol>
+  <p>The version above (with <code>let y = Box::new(1234)</code>) goes one step further: it makes the allocator <b>reuse</b> the block, so the stale pointer reads another value's data. That's the version in the lab.</p>
+
   <h2>Could it crash instead?</h2>
   <p>The lesson asked you this. Connect it to Lecture 1:</p>
   <ul>
