@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The stack and frames</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main class="wide">
+  <div class="kicker">Lesson 1 · Part 3</div>
+  <h1>The stack and stack frames</h1>
+  <p class="lede">The stack is how your program remembers which function it's in and what each function's variables are.</p>
+
+  <div class="oneline"><b>In one sentence</b>Every function call pushes one frame onto the stack, and returning pops it off, so the newest call is always finished first.</div>
+
+  <h2>A stack of plates</h2>
+  <p class="analogy">Each time a function is called, put a plate on the pile. You can only take the top plate off. When a function finishes, its plate is removed and you're back at the plate underneath.</p>
+  <p>Each plate is a <b>stack frame</b> (also called a call frame). It holds:</p>
+  <ul>
+    <li>the <b>arguments</b> passed into the function</li>
+    <li>the function's <b>local variables</b></li>
+    <li>space for the <b>return value</b> (and where to jump back to)</li>
+  </ul>
+  <p>In memory the stack grows <b>downward</b>, so the newest frame is drawn at the bottom.</p>
+
+  <h2>Watch it happen</h2>
+  <p>Click <b>Next ▶</b>. The highlighted line is the one running. Orange outline = just changed.</p>
+  <div id="s1"></div>
+
+  <h2>Why the stack is fast</h2>
+  <ol class="steps">
+    <li>The compiler knows the exact size of every frame <b>before the program runs</b> (main needs 2 × 4 bytes for two i32s).</li>
+    <li>So "allocating" a frame is just moving one CPU register (the stack pointer) down by that many bytes. "Freeing" moves it back up. That's it.</li>
+    <li>Recently used stack memory is almost always in the CPU cache, so reading it is very quick.</li>
+  </ol>
+
+  <h2>The rules of the stack</h2>
+  <div class="table-wrap"><table>
+    <tr><th>Good at</th><th>Bad at</th></tr>
+    <tr><td>Super fast allocate and free</td><td><b>Small</b>: usually 8 MB for the main thread, 2 MB for threads Rust spawns</td></tr>
+    <tr><td>Automatic cleanup when the function ends</td><td>Data dies when the function ends: you can't return a reference to a local</td></tr>
+    <tr><td>Each thread has its own stack, so no sharing problems</td><td>Only for data whose <b>size is known at compile time</b></td></tr>
+    <tr><td>Cache friendly</td><td>Big arrays can cause a <b>stack overflow</b></td></tr>
+  </table></div>
+
+  <div class="note"><b>"Size known at compile time"</b> means the compiler can count the bytes just by reading the type. <code>i32</code> = 4. <code>[u8; 5]</code> = 5. But <code>[i32]</code> (a slice of <i>some</i> length) or <code>str</code> (text of <i>some</i> length) have no fixed size, so they can't sit directly on the stack. They need a pointer, which is Part 1.4.</div>
+
+  <div class="try"><b class="t">Try it</b>
+    <pre>cd lab
+cargo run --example 02_stack_frames</pre>
+    <p>You'll see each deeper call print a <b>smaller</b> address. Proof the stack grows down. On my Mac each frame was 0x80 = 128 bytes lower.</p>
+  </div>
+
+  <div class="quiz">
+    <h2>Check yourself</h2>
+    <details><summary>In the example, is <code>input</code> the same memory as <code>x</code>?</summary>No. <code>input</code> is a <b>copy</b> of x placed in foo's own frame. Changing input would not change x.</details>
+    <details><summary>After foo returns, what happens to <code>y</code>?</summary>It's gone. foo's whole frame was popped. Only the return value (21) made it back into main's <code>result</code>.</details>
+    <details><summary>Why can't you return <code>&amp;y</code> from foo?</summary>Because y lives in foo's frame, which is destroyed when foo returns. The reference would point at dead memory. Rust refuses to compile it.</details>
+    <details><summary>Two <code>i32</code> locals in the same frame: how far apart are their addresses, usually?</summary>4 bytes, because each i32 is 4 bytes. (The compiler may reorder them, so don't rely on which comes first.)</details>
+  </div>
+</main>
+<script src="../assets/site.js"></script>
+<script>
+stepper(document.getElementById("s1"), {
+  title: "main() calls foo()",
+  cols: ["Stack (grows down ↓)"],
+  code: `
+fn main() {
+    let x = 5;
+    let result = foo(x);
+}
+
+fn foo(input: i32) -> i32 {
+    let y = input + 2;
+    y * 3
+}`,
+  steps: [
+    { line: 1, cols: { "Stack (grows down ↓)": [{ t: "main()", f: "new", r: [["x", "?"], ["result", "?"]] }] },
+      note: "The OS starts your program and calls <code>main</code>. A frame for main is pushed. The compiler already knows it needs room for two i32s (8 bytes), so the slots exist but are empty." },
+    { line: 2, cols: { "Stack (grows down ↓)": [{ t: "main()", r: [["x", "5", "new"], ["result", "?"]] }] },
+      note: "<code>x = 5</code> is written into main's frame. Plain numbers live right here on the stack." },
+    { line: 3, cols: { "Stack (grows down ↓)": [{ t: "main()", r: [["x", "5"], ["result", "?"]] }, { t: "foo()", f: "new", r: [["input", "5"], ["return slot", "?"]] }] },
+      note: "main calls <code>foo(x)</code>. A <b>new frame</b> is pushed below main. The argument is <b>copied</b> in: <code>input = 5</code>. There's also space reserved for the return value." },
+    { line: 7, cols: { "Stack (grows down ↓)": [{ t: "main()", r: [["x", "5"], ["result", "?"]] }, { t: "foo()", r: [["input", "5"], ["y", "7", "new"], ["return slot", "?"]] }] },
+      note: "foo creates a local <code>y = input + 2 = 7</code>. It lives in foo's frame, not main's." },
+    { line: 8, cols: { "Stack (grows down ↓)": [{ t: "main()", r: [["x", "5"], ["result", "?"]] }, { t: "foo()", r: [["input", "5"], ["y", "7"], ["return slot", "21", "new"]] }] },
+      note: "<code>y * 3 = 21</code> is the last expression, so it becomes the return value." },
+    { line: 3, cols: { "Stack (grows down ↓)": [{ t: "main()", r: [["x", "5"], ["result", "21", "new"]] }, { t: "foo()", f: "freed", r: [["input", "5"], ["y", "7"]] }] },
+      note: "foo is finished. Its frame is <b>popped</b> (crossed out). The 21 is handed back and saved into <code>result</code>. <code>input</code> and <code>y</code> no longer exist." },
+    { line: 4, cols: { "Stack (grows down ↓)": [{ t: "main()", f: "freed", r: [["x", "5"], ["result", "21"]] }] },
+      note: "main ends, its frame is popped, the stack is empty, and the program exits. Notice: nothing touched the heap. The stack is Rust's default." },
+  ],
+});
+</script>
+</body>
+</html>

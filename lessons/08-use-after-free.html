@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Use-after-free</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main class="wide">
+  <div class="kicker">Lesson 2 · Part 2</div>
+  <h1>Use-after-free</h1>
+  <p class="lede">The heap gives a spot back to the allocator. You still have its address. You read it anyway.</p>
+
+  <div class="oneline"><b>In one sentence</b>Use-after-free is reading or writing heap memory after it was freed, when it may already belong to something else.</div>
+
+  <h2>The plan</h2>
+  <ol class="steps">
+    <li>Put a 5 in a Box on the heap.</li>
+    <li>Turn the Box into a <b>raw pointer</b>, so Rust stops tracking it.</li>
+    <li>Free the memory.</li>
+    <li>Make a new Box. The allocator happily reuses the freed spot.</li>
+    <li>Read through the old pointer.</li>
+  </ol>
+
+  <div id="s1"></div>
+
+  <h2>What really happened on my Mac</h2>
+<pre>$ cargo run --example 07_use_after_free
+new Box lives at 0x102eb93b0, old pointer is 0x102eb93b0
+value after free: 1234</pre>
+  <p>Same address. The old pointer, which "should" hold 5, now reads <b>1234</b>, a completely different value that belongs to <code>y</code>. No crash, no error message. In a real program that 1234 could be a password, or the old pointer could be used to <b>write</b> and corrupt <code>y</code>. That's how many real security holes work.</p>
+
+  <h2>Could it crash instead?</h2>
+  <p>The lesson asked you this. Connect it to Lesson 1:</p>
+  <ul>
+    <li>Small freed blocks usually stay inside the allocator's pool. The <b>page</b> is still mapped to your process, so reading it is "allowed" by the MMU. No crash, just wrong data.</li>
+    <li>But if the allocator gives the whole page back to the OS (common for big allocations), the page is <b>unmapped</b>. Now the read hits a page you don't own, and you get a <b>segfault</b>.</li>
+    <li>So the hidden assumption behind "it won't crash" is: <i>the allocator kept that page</i>. That's not guaranteed by anything.</li>
+  </ul>
+
+  <h2>Why safe Rust can't do this</h2>
+<pre><code>let x = Box::new(5);
+drop(x);              // ownership moves into drop, memory freed
+println!("{}", x);    // error[E0382]: borrow of moved value: `x`</code></pre>
+  <p>Ownership means there's exactly one owner, and after a move the old name is dead. The compiler simply refuses. We needed <code>Box::into_raw</code> to escape ownership and get a pointer Rust doesn't track.</p>
+
+  <div class="quiz">
+    <h2>Check yourself</h2>
+    <details><summary>What does <code>Box::into_raw</code> do to ownership?</summary>It gives up the Box's ownership and returns a raw pointer. Rust will no longer free that memory for you or check how you use the pointer.</details>
+    <details><summary>Why did the old pointer show 1234?</summary>The allocator reused the freed block for the new Box <code>y</code>. The old pointer and y now point at the same address.</details>
+    <details><summary>Use-after-free is a ___ safety bug.</summary>Temporal (the "when" family). The address was valid, the object was dead.</details>
+  </div>
+</main>
+<script src="../assets/site.js"></script>
+<script>
+stepper(document.getElementById("s1"), {
+  title: "Free it, then use it",
+  cols: ["Stack", "Heap"],
+  code: `
+let x = Box::new(5);
+let raw_x = Box::into_raw(x);
+unsafe {
+    drop(Box::from_raw(raw_x));
+    let y = Box::new(1234);
+    println!("{}", *raw_x);   // UB!
+}`,
+  steps: [
+    { line: 1, cols: { Stack: [{ t: "x: Box", f: "new", r: [["ptr", "→ 0xB0"]] }], Heap: [{ t: "0xB0", f: "new", r: [["value", "5"]] }] },
+      note: "A normal Box. x owns the 5 on the heap. Rust will free it for us later." },
+    { line: 2, cols: { Stack: [{ t: "x", f: "freed", r: [["(moved)", ""]] }, { t: "raw_x: *mut i32", f: "new", r: [["addr", "0xB0"]] }], Heap: [{ t: "0xB0", r: [["value", "5"]] }] },
+      note: "<code>Box::into_raw</code> moves x away and hands back a <b>raw pointer</b>. Rust no longer knows who owns 0xB0. Responsibility is now ours." },
+    { line: 4, cols: { Stack: [{ t: "raw_x: *mut i32", r: [["addr", "0xB0"]] }], Heap: [{ t: "0xB0 (free)", f: "freed", r: [["value", "5?"]] }] },
+      note: "<code>Box::from_raw</code> makes a temporary Box again, and <code>drop</code> frees it. 0xB0 is back in the allocator's free list. But <b>raw_x still holds 0xB0</b>. It's now a <b>dangling pointer</b>." },
+    { line: 5, cols: { Stack: [{ t: "raw_x: *mut i32", r: [["addr", "0xB0", "bad"]] }, { t: "y: Box", f: "new", r: [["ptr", "→ 0xB0"]] }], Heap: [{ t: "0xB0 (owned by y)", f: "new", r: [["value", "1234"]] }] },
+      note: "We ask for a new Box of the same size. The allocator gives us the <b>same spot</b>, 0xB0. Two pointers, one memory, and only y is legit." },
+    { line: 6, cols: { Stack: [{ t: "raw_x: *mut i32", r: [["addr", "0xB0", "bad"]] }, { t: "y: Box", r: [["ptr", "→ 0xB0"]] }], Heap: [{ t: "0xB0 (owned by y)", f: "bad", r: [["value", "1234"]] }] },
+      note: "<b>Use-after-free.</b> We read through raw_x and get <b>1234</b>, y's data. No crash, no warning. This is undefined behaviour." },
+  ],
+});
+</script>
+</body>
+</html>

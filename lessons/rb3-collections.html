@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vec, String, Box, Drop</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main>
+  <div class="kicker">Rust Book essentials · Chapters 8 and 15</div>
+  <h1>Vec, String, Box and Drop</h1>
+  <p class="lede">The heap types you'll meet in Part 1.4 and 1.5, and the cleanup system behind them.</p>
+
+  <div class="oneline"><b>In one sentence</b>Vec, String and Box own memory on the heap, and their Drop code frees it automatically when they go out of scope.</div>
+
+  <div class="note">From the Rust Book: <a href="https://doc.rust-lang.org/book/ch08-01-vectors.html">8.1 Vectors</a>, <a href="https://doc.rust-lang.org/book/ch08-02-strings.html">8.2 Strings</a>, <a href="https://doc.rust-lang.org/book/ch15-01-box.html">15.1 Box</a>, <a href="https://doc.rust-lang.org/book/ch15-03-drop.html">15.3 Drop</a>, <a href="https://doc.rust-lang.org/book/ch15-04-rc.html">15.4 Rc</a>.</div>
+
+  <h2>Vec: a list that can grow</h2>
+<pre><code>let mut v: Vec&lt;i32&gt; = Vec::new();   // empty
+v.push(5);                           // add to the end
+v.push(6);
+let w = vec![1, 2, 3];               // vec! macro: create with values
+
+let third: i32 = w[2];               // index: panics if out of range
+let maybe: Option&lt;&amp;i32&gt; = w.get(9);  // get: returns None instead of panicking
+
+for x in &amp;w { println!("{x}"); }     // loop over borrowed items</code></pre>
+  <p><code>Vec&lt;i32&gt;</code> reads as "a Vec of i32s". The <code>&lt;&gt;</code> holds the type of the items.</p>
+
+  <h3>The Book's most important Vec example</h3>
+<pre><code>let mut v = vec![1, 2, 3, 4, 5];
+let first = &amp;v[0];      // borrow the first item
+v.push(6);              // ERROR: cannot borrow `v` as mutable because it is also borrowed
+println!("{first}");</code></pre>
+  <p>Why would pushing break a reference to item 0? The Book's answer: pushing might need a <b>bigger heap block</b>, so the items get <b>copied somewhere new and the old block is freed</b>. Then <code>first</code> would point at freed memory. That's a use-after-free, and the borrow rules catch it. You'll watch this reallocation happen in Part 1.4.</p>
+
+  <h2>String: growable text</h2>
+<pre><code>let mut s = String::new();
+let s2 = String::from("hi");          // from a literal
+let s3 = "hi".to_string();            // same thing
+s.push_str("hello");                  // add text
+s.push('!');                          // add one char
+let both = format!("{s2} and {s3}");  // build a new String</code></pre>
+  <p>Underneath, a String is a <code>Vec&lt;u8&gt;</code> of UTF-8 bytes. Same 3 numbers on the stack (pointer, length, capacity), letters on the heap.</p>
+  <div class="table-wrap"><table>
+    <tr><th></th><th><code>String</code></th><th><code>&amp;str</code></th></tr>
+    <tr><td>Owns its text?</td><td>Yes</td><td>No, it's a borrowed slice</td></tr>
+    <tr><td>Can grow?</td><td>Yes</td><td>No</td></tr>
+    <tr><td>Literal <code>"hi"</code> is a...</td><td></td><td>✓ (<code>&amp;'static str</code>)</td></tr>
+  </table></div>
+  <p>You can't do <code>s[0]</code> on a String. Some characters take more than one byte (like é or 😀), so "byte 0" might be half a character. Rust refuses rather than give you garbage.</p>
+
+  <h2>Box: put one value on the heap</h2>
+<pre><code>let b = Box::new(5);     // the 5 is on the heap, b (a pointer) is on the stack
+println!("{}", b);       // use it like the value: prints 5
+println!("{}", *b + 1);  // * follows the pointer: 6</code></pre>
+  <p>When to use a Box, according to the Book:</p>
+  <ul>
+    <li>The size isn't known at compile time (e.g. recursive types, trait objects like <code>Box&lt;dyn Trait&gt;</code>).</li>
+    <li>You have a <b>lot</b> of data and want to move ownership without copying it all (only the 8-byte pointer moves).</li>
+  </ul>
+
+  <h2>Drop: the cleanup system</h2>
+  <p>Any type can say what happens when it's cleaned up by implementing the <code>Drop</code> trait. Box, Vec and String use it to free their heap memory.</p>
+<pre><code>struct Noisy(&amp;'static str);
+
+impl Drop for Noisy {
+    fn drop(&amp;mut self) { println!("dropping {}", self.0); }
+}
+
+fn main() {
+    let a = Noisy("a");
+    let b = Noisy("b");
+    println!("end of main");
+}
+// prints:
+// end of main
+// dropping b
+// dropping a        &lt;- reverse order of creation</code></pre>
+  <p>You never call <code>.drop()</code> yourself. To clean up early use <code>drop(x)</code> (a normal function that takes ownership). You'll see <code>drop(Box::from_raw(...))</code> in the use-after-free lesson: that's this.</p>
+
+  <h2>Rc: when one owner isn't enough</h2>
+<pre><code>use std::rc::Rc;
+let a = Rc::new(5);
+let b = Rc::clone(&amp;a);   // doesn't copy the 5, adds 1 to a counter
+println!("{}", Rc::strong_count(&amp;a));   // 2</code></pre>
+  <p><b>Rc</b> = Reference Counted. It keeps a count of owners next to the value on the heap. When the count hits 0, the value is dropped. Rc only works on one thread. Its thread-safe twin is <b>Arc</b> (next page).</p>
+
+  <div class="quiz">
+    <h2>Check yourself</h2>
+    <details><summary>Why can't you push to a Vec while holding <code>&amp;v[0]</code>?</summary>The push may move the items to a new heap block and free the old one, leaving your reference dangling.</details>
+    <details><summary>What's the difference between <code>v[9]</code> and <code>v.get(9)</code>?</summary><code>v[9]</code> panics if out of range. <code>v.get(9)</code> returns <code>None</code>.</details>
+    <details><summary>In what order are values dropped at the end of a scope?</summary>Reverse order of creation: last created, first dropped.</details>
+    <details><summary>Why can't you write <code>s[0]</code> on a String?</summary>Strings are UTF-8, and a character can be more than one byte, so byte 0 might not be a whole character.</details>
+  </div>
+</main>
+<script src="../assets/site.js"></script>
+</body>
+</html>

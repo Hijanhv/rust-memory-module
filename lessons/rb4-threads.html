@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Threads, Arc and Mutex</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main>
+  <div class="kicker">Rust Book essentials · Chapter 16</div>
+  <h1>Threads, Arc and Mutex</h1>
+  <p class="lede">Just enough concurrency to understand the data race in Lesson 2 and its fix.</p>
+
+  <div class="oneline"><b>In one sentence</b>Threads run code at the same time, and to share data between them safely you need Arc (shared ownership) plus Mutex (one at a time).</div>
+
+  <div class="note">From the Rust Book: <a href="https://doc.rust-lang.org/book/ch16-01-threads.html">16.1 Threads</a>, <a href="https://doc.rust-lang.org/book/ch16-03-shared-state.html">16.3 Shared state</a>, <a href="https://doc.rust-lang.org/book/ch16-04-extensible-concurrency-sync-and-send.html">16.4 Send and Sync</a>.</div>
+
+  <h2>1. Starting a thread</h2>
+<pre><code>use std::thread;
+
+let handle = thread::spawn(|| {          // || { } is a closure: a mini function with no name
+    println!("hi from the new thread");
+});
+println!("hi from main");
+handle.join().unwrap();                  // wait here until the thread finishes</code></pre>
+  <p>The two <code>println!</code>s can come out in <b>either order</b>. The OS decides who runs when. That unpredictability is the root of data races.</p>
+  <p>Without <code>join()</code>, main might finish first, and when main ends the whole program ends, killing the thread mid-way.</p>
+  <p>Remember from Part 1.3: <b>every thread gets its own stack</b>. Local variables in one thread are invisible to others. Sharing needs the heap or static memory.</p>
+
+  <h2>2. move closures</h2>
+<pre><code>let v = vec![1, 2, 3];
+let handle = thread::spawn(move || {     // move: the closure takes ownership of v
+    println!("{:?}", v);
+});
+handle.join().unwrap();</code></pre>
+  <p>Without <code>move</code>, the closure would only <b>borrow</b> v. But the thread might outlive main's stack frame, so the borrow could dangle. Rust refuses to compile it. <code>move</code> hands v over to the thread completely.</p>
+
+  <h2>3. Mutex: one at a time</h2>
+<pre><code>use std::sync::Mutex;
+
+let m = Mutex::new(5);
+{
+    let mut num = m.lock().unwrap();     // wait for the lock, then get access
+    *num += 1;
+}                                        // lock is released automatically here (Drop again!)
+println!("{:?}", m);                     // Mutex { data: 6, .. }</code></pre>
+  <p class="analogy">A Mutex is a room with one key. To touch the data you take the key (<code>lock()</code>). Everyone else waits outside until you hand it back.</p>
+
+  <h2>4. Arc: share ownership across threads</h2>
+  <p>Several threads need to own the same Mutex. One owner isn't enough, so we need reference counting. <code>Rc</code> isn't thread safe, so we use <b>Arc</b> (Atomically Reference Counted). This is the Book's counter example:</p>
+<pre><code>use std::sync::{Arc, Mutex};
+use std::thread;
+
+let counter = Arc::new(Mutex::new(0));
+let mut handles = vec![];
+
+for _ in 0..10 {
+    let counter = Arc::clone(&amp;counter);          // each thread gets its own Arc
+    handles.push(thread::spawn(move || {
+        let mut num = counter.lock().unwrap();
+        *num += 1;
+    }));
+}
+for h in handles { h.join().unwrap(); }
+println!("{}", *counter.lock().unwrap());        // always 10</code></pre>
+  <p>In Part 2.4 you'll write the <b>unsafe</b> version without a Mutex and watch it give wrong answers.</p>
+
+  <h2>5. Atomics: a lock-free shortcut for numbers</h2>
+<pre><code>use std::sync::atomic::{AtomicUsize, Ordering};
+static HITS: AtomicUsize = AtomicUsize::new(0);
+HITS.fetch_add(1, Ordering::Relaxed);    // read + add + write as ONE uninterruptible step</code></pre>
+  <p>For a plain counter, an atomic is simpler and faster than a Mutex. (<code>Ordering</code> is an advanced topic: <code>Relaxed</code> is fine for counters.)</p>
+
+  <h2>6. Send and Sync (just the idea)</h2>
+  <ul>
+    <li><b>Send</b>: this type is safe to <b>move</b> to another thread. (Rc is not Send. Arc is.)</li>
+    <li><b>Sync</b>: this type is safe to <b>share by reference</b> between threads. (Mutex is Sync.)</li>
+  </ul>
+  <p>The compiler checks these automatically. Try to send an Rc to a thread and you get a compile error. This is how safe Rust makes data races impossible.</p>
+
+  <div class="quiz">
+    <h2>Check yourself</h2>
+    <details><summary>What does <code>handle.join()</code> do?</summary>Waits until that thread finishes.</details>
+    <details><summary>Why do threads often need <code>move</code>?</summary>The thread might outlive the current function, so it must own its data instead of borrowing from a stack frame that could disappear.</details>
+    <details><summary>Why Arc instead of Rc for threads?</summary>Arc updates its owner count with atomic operations, so it's safe when several threads clone and drop it at once. Rc isn't.</details>
+    <details><summary>When is a Mutex lock released?</summary>When the guard returned by <code>lock()</code> goes out of scope and is dropped.</details>
+  </div>
+</main>
+<script src="../assets/site.js"></script>
+</body>
+</html>

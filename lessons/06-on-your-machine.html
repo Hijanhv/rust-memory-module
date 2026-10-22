@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>See it on your machine</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main>
+  <div class="kicker">Lesson 1 · Part 6 · Extra practice</div>
+  <h1>See it on your own machine</h1>
+  <p class="lede">Diagrams are nice. Real addresses are better. Let's print where things actually live.</p>
+
+  <div class="oneline"><b>In one sentence</b>Printing addresses with <code>{:p}</code> proves the map from Part 1.2 is real: code and statics low, heap above them, stack way up high.</div>
+
+  <h2>Set up (one time)</h2>
+  <ol class="steps">
+    <li>Clone the repo: <code>git clone https://github.com/Hijanhv/rust-memory-module</code></li>
+    <li>Go into the lab folder: <code>cd rust-memory-module/lab</code></li>
+    <li>Run any example: <code>cargo run --example 01_addresses</code></li>
+  </ol>
+  <p>No internet? No Rust installed? Paste any example file into the free <a href="https://play.rust-lang.org">Rust Playground</a> and press Run.</p>
+
+  <h2>Example 1: one address from every region</h2>
+  <pre>cargo run --example 01_addresses</pre>
+  <p>My output (yours will have different numbers because of ASLR, but the same order):</p>
+<pre>text  (code)    main()   : 0x100590ce8
+static (ro)     GLOBAL   : 0x1005c77bc
+static (ro)     "hello"  : 0x1005c77b4
+static (rw)     COUNTER  : 0x1005dccc8
+heap            *on_heap : 0x100e453b0
+stack           on_stack : 0x16f86e724
+stack           on_heap  : 0x16f86e728  (the Box itself, i.e. the pointer)</pre>
+  <p>Read it bottom-up like the map:</p>
+  <ol class="steps">
+    <li><b>Code</b> is lowest (0x100590...).</li>
+    <li><b>Read-only statics</b> just above it, then the <b>writable static</b> COUNTER a bit higher.</li>
+    <li><b>Heap</b> above that (0x100e...).</li>
+    <li><b>Stack</b> far away at 0x16f... with a huge gap in between, just like the picture.</li>
+    <li>The Box variable <code>on_heap</code> is on the <b>stack</b>, but the 99 inside it is on the <b>heap</b>. Two different addresses for one variable.</li>
+  </ol>
+
+  <h2>Example 2: how big is each thing on the stack?</h2>
+  <pre>cargo run --example 05_sizes</pre>
+<pre>i32               4 bytes
+[i32; 5]         20 bytes (whole array is on the stack)
+&amp;i32              8 bytes (thin pointer: address only)
+Box&lt;i32&gt;          8 bytes (thin pointer to heap)
+&amp;str             16 bytes (fat: address + length)
+&amp;[i32]           16 bytes (fat: address + length)
+String           24 bytes (ptr + len + capacity)
+Vec&lt;i32&gt;         24 bytes (ptr + len + capacity)
+Box&lt;dyn Speak&gt;   16 bytes (fat: address + vtable)
+Option&lt;Box&lt;i32&gt;&gt;  8 bytes (null is never a valid Box, so None is free)</pre>
+  <p>A <b>thin pointer</b> is just an address (8 bytes on 64-bit). A <b>fat pointer</b> is an address plus extra info: a length for slices and <code>&amp;str</code>, or a table of methods (vtable) for <code>dyn</code> traits. This is how unsized things like <code>str</code> and <code>[i32]</code> can be used: through a fat pointer that carries the size.</p>
+
+  <h2>Example 3: a real stack overflow</h2>
+  <pre>cargo run --example 06_stack_overflow</pre>
+<pre>heap version worked: 4194304 bytes
+
+thread '&lt;unknown&gt;' has overflowed its stack
+fatal runtime error: stack overflow, aborting</pre>
+  <p>A thread Rust spawns gets a <b>2 MB</b> stack. We tried to put a <b>4 MB</b> array on it. Boom. The same 4 MB in a <code>vec!</code> (heap) was totally fine. That's the stack size limit from Part 1.3, and it happened while the computer had gigabytes of free RAM.</p>
+
+  <div class="quiz">
+    <h2>Check yourself</h2>
+    <details><summary>Why is <code>&amp;str</code> 16 bytes but <code>&amp;i32</code> only 8?</summary><code>&amp;str</code> is a fat pointer: 8 bytes of address + 8 bytes of length. <code>&amp;i32</code> only needs the address because an i32 is always 4 bytes.</details>
+    <details><summary>Why are String and Vec both 24 bytes?</summary>Both store pointer + length + capacity, 8 bytes each. (A String is a Vec of bytes underneath.)</details>
+    <details><summary>A 4 MB array crashed but a 4 MB Vec didn't. Why?</summary>The array lives on the 2 MB thread stack. The Vec's data lives on the heap, and only 24 bytes go on the stack.</details>
+  </div>
+</main>
+<script src="../assets/site.js"></script>
+</body>
+</html>

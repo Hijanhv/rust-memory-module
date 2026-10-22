@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Variables, types, functions</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main>
+  <div class="kicker">Rust Book essentials · Chapter 3</div>
+  <h1>Variables, types, functions and loops</h1>
+  <p class="lede">The everyday building blocks. Every example in Lessons 1 and 2 is made of these.</p>
+
+  <div class="oneline"><b>In one sentence</b>Every Rust value has a type, and the type tells you exactly how many bytes it takes in memory.</div>
+
+  <div class="note">From the Rust Book: <a href="https://doc.rust-lang.org/book/ch03-01-variables-and-mutability.html">3.1 Variables</a>, <a href="https://doc.rust-lang.org/book/ch03-02-data-types.html">3.2 Data types</a>, <a href="https://doc.rust-lang.org/book/ch03-03-how-functions-work.html">3.3 Functions</a>, <a href="https://doc.rust-lang.org/book/ch03-05-control-flow.html">3.5 Control flow</a>. This page covers the parts you need.</div>
+
+  <h2>1. Variables can't change unless you say so</h2>
+<pre><code>let x = 5;
+// x = 6;          // ERROR: cannot assign twice to immutable variable
+
+let mut y = 5;     // mut = mutable = allowed to change
+y = 6;             // fine
+
+let z = 5;
+let z = z + 1;     // "shadowing": a brand new variable that reuses the name. z is 6.</code></pre>
+  <p>Rust makes things unchangeable by default because data that can't change can't be broken by surprise. You'll see this idea again with statics in Part 1.5.</p>
+
+  <h2>2. Types = sizes</h2>
+  <p>A <b>bit</b> is a single 0 or 1. A <b>byte</b> is 8 bits. Memory addresses point at bytes.</p>
+  <div class="table-wrap"><table>
+    <tr><th>Type</th><th>What it holds</th><th>Bytes</th></tr>
+    <tr><td><code>i8 i16 i32 i64 i128</code></td><td>Whole numbers, can be negative</td><td>1, 2, 4, 8, 16</td></tr>
+    <tr><td><code>u8 u16 u32 u64 u128</code></td><td>Whole numbers, 0 or more (u = unsigned)</td><td>1, 2, 4, 8, 16</td></tr>
+    <tr><td><code>usize</code> / <code>isize</code></td><td>Same size as an address. Used for indexes and lengths.</td><td>8 on a 64-bit machine</td></tr>
+    <tr><td><code>f32 f64</code></td><td>Decimals</td><td>4, 8</td></tr>
+    <tr><td><code>bool</code></td><td><code>true</code> / <code>false</code></td><td>1</td></tr>
+    <tr><td><code>char</code></td><td>One Unicode character like <code>'a'</code> or <code>'😀'</code></td><td>4</td></tr>
+  </table></div>
+  <p>If you don't write a type, Rust guesses. A whole number defaults to <code>i32</code>. That's why <code>let x = 5;</code> takes 4 bytes.</p>
+  <p>A <code>u8</code> holds 0 to 255. That's why bytes are often written as two hex digits: <code>0x00</code> to <code>0xFF</code>. You'll read hex a lot in Lesson 2.</p>
+
+  <h3>Groups of values</h3>
+<pre><code>let tup: (i32, f64, u8) = (500, 6.4, 1);   // tuple: fixed group, mixed types
+let (a, b, c) = tup;                       // pull them apart
+let first = tup.0;                         // or use .0 .1 .2
+
+let arr: [u8; 5] = [0, 0, 0, 0, 0];        // array: fixed length, one type
+let same = [0u8; 5];                       // shortcut: five zeros of type u8
+let one = arr[0];                          // indexing starts at 0</code></pre>
+  <p><code>[u8; 5]</code> means "5 values of type u8". Its size is 5 × 1 = 5 bytes, known when compiling, so it lives on the <b>stack</b>. This is exactly the buffer in the buffer overflow lesson.</p>
+  <div class="note warn"><b>Arrays are bounds checked.</b> <code>arr[10]</code> on a 5-item array doesn't read random memory, it <b>panics</b> (stops the program with an error message). The Book calls this "Rust's memory safety principles in action". Lesson 2 shows what happens when you skip the check with unsafe.</div>
+
+  <h2>3. Functions</h2>
+<pre><code>fn main() {
+    let result = add_two(5);
+    println!("{result}");       // prints 7
+}
+
+fn add_two(x: i32) -> i32 {     // every argument needs a type. -> i32 is the return type.
+    x + 2                       // no semicolon = this is the value returned
+}</code></pre>
+  <p><b>Statements</b> do something and end with <code>;</code>. <b>Expressions</b> produce a value. The last expression in a function (no semicolon) is its return value. Add a <code>;</code> after <code>x + 2</code> and it stops being returned, and Rust will complain.</p>
+
+  <h2>4. Loops</h2>
+<pre><code>for i in 0..6 {        // 0, 1, 2, 3, 4, 5  (the 6 is NOT included)
+    println!("{i}");
+}
+for i in 0..=6 { }     // ..= includes the end: 0 to 6
+
+let mut n = 3;
+while n != 0 { n -= 1; }
+
+loop { break; }        // forever, until break</code></pre>
+  <p><code>0..6</code> runs 6 times. That's why the buffer overflow example writes 6 bytes into a 5-byte buffer.</p>
+
+  <h2>5. Printing (you'll use this constantly)</h2>
+<pre><code>let x = 5;
+println!("x is {}", x);    // normal
+println!("x is {x}");      // same, shorter
+println!("{:?}", [1, 2]);  // :? = debug print, works for arrays, Vecs, tuples
+println!("{:p}", &x);      // :p = print as a memory address, like 0x16f86e724</code></pre>
+
+  <div class="quiz">
+    <h2>Check yourself</h2>
+    <details><summary>How many bytes is <code>[i32; 5]</code>?</summary>5 × 4 = <b>20 bytes</b>.</details>
+    <details><summary>What type is <code>let n = 7;</code>?</summary><code>i32</code>, the default for whole numbers.</details>
+    <details><summary>How many times does <code>for i in 0..6</code> run?</summary>6 times: i = 0, 1, 2, 3, 4, 5.</details>
+    <details><summary>What does <code>arr[9]</code> do on a 5-item array in normal Rust?</summary>Panics with "index out of bounds". It never touches memory outside the array.</details>
+    <details><summary>Why does this fail? <code>fn two() -> i32 { 2; }</code></summary>The semicolon turns <code>2</code> into a statement, so the function returns nothing (<code>()</code>) instead of an i32.</details>
+  </div>
+</main>
+<script src="../assets/site.js"></script>
+</body>
+</html>

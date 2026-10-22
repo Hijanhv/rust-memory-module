@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Virtual memory and pages</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main>
+  <div class="kicker">Lesson 1 · Part 1</div>
+  <h1>Virtual memory and pages</h1>
+  <p class="lede">Your program never sees real RAM. It sees a pretend, private copy of memory, and the operating system quietly translates.</p>
+
+  <div class="oneline"><b>In one sentence</b>Every program gets its own fake address space, cut into pages, and the OS + CPU map each page to a real spot in RAM.</div>
+
+  <h2>The problem</h2>
+  <p>Your computer runs hundreds of programs at once, but there is only one RAM. If every program used real RAM addresses directly:</p>
+  <ul>
+    <li>Two programs could write to the same spot and break each other.</li>
+    <li>Every programmer would need to know which bits of RAM are free right now.</li>
+    <li>A buggy program could read your browser's passwords.</li>
+  </ul>
+
+  <h2>The fix: virtual memory</h2>
+  <ol class="steps">
+    <li>Each program (a <b>process</b>) gets its own huge range of addresses, starting at 0. These are <b>virtual addresses</b>. They're not real.</li>
+    <li>That range is cut into equal blocks called <b>pages</b>. Usually 4 KB each. (On Apple Silicon Macs they're 16 KB.)</li>
+    <li>The operating system <b>kernel</b> keeps a <b>page table</b> for each process: "this program's page 1 is really at RAM frame 3".</li>
+    <li>A piece of hardware inside the CPU, the <b>MMU</b> (Memory Management Unit), reads that table and translates every single address, super fast.</li>
+  </ol>
+  <p class="analogy">Analogy: your program has a notebook with page numbers 0, 1, 2, 3... The OS is a librarian with a list saying "notebook page 1 is really stored on shelf 3, page 2 on shelf 98". You just say "page 2", and the librarian fetches it. You never need to know about shelves.</p>
+
+<pre>Virtual (what your program sees):  [Page 0] [Page 1] [Page 2] [Page 3]
+                                       |        |        |        |   MMU translates
+                                       v        v        v        v
+Physical (real RAM):               frame 12  frame 3  frame 98  frame 25</pre>
+  <p>Notice: the pages look <b>side by side</b> to your program, but they're <b>scattered</b> in real RAM. That's fine. Your program never knows.</p>
+
+  <h2>Permissions: every page has rules</h2>
+  <p>Each page in the table also has three switches:</p>
+  <div class="table-wrap"><table>
+    <tr><th>Flag</th><th>Means</th><th>Example</th></tr>
+    <tr><td><b>R</b> read</td><td>You may look at it</td><td>Almost everything</td></tr>
+    <tr><td><b>W</b> write</td><td>You may change it</td><td>Stack, heap. <i>Not</i> your code.</td></tr>
+    <tr><td><b>X</b> execute</td><td>The CPU may run it as instructions</td><td>Only your compiled code</td></tr>
+  </table></div>
+  <p>Break a rule (write to a read-only page, or touch a page you were never given) and the CPU stops your program. On Mac/Linux this is the famous <b>segmentation fault</b> ("segfault").</p>
+
+  <h2>What's a page fault?</h2>
+  <p>When your program touches a page, one of three things happens:</p>
+  <ol class="steps">
+    <li><b>Page is in RAM.</b> Normal. Fast. Nothing to see.</li>
+    <li><b>Page is yours but was moved to disk</b> (RAM was full). The MMU raises a <b>page fault</b>, the OS loads it back from the SSD, and your program continues. It never notices, it's just slower.</li>
+    <li><b>Page isn't yours, or the permission is wrong.</b> The OS kills the program: segfault.</li>
+  </ol>
+  <p>Case 2 is how a program can use more memory than you have RAM. Case 3 matters a lot in Lesson 2: some memory bugs crash (case 3) and some don't (the bad address happened to be on a page you own).</p>
+
+  <div class="try"><b class="t">Try it (no install needed)</b>
+    <p>Open the Terminal on your Mac and type:</p>
+    <pre>pagesize</pre>
+    <p>On an M-series Mac you'll see <code>16384</code> (16 KB). On most Linux/Intel machines it's <code>4096</code> (4 KB).</p>
+  </div>
+
+  <div class="quiz">
+    <h2>Check yourself</h2>
+    <details><summary>Two programs both use address <code>0x1000</code>. Do they clash?</summary>No. Each has its <b>own</b> virtual address space, so their 0x1000 maps to different real RAM.</details>
+    <details><summary>Who translates virtual addresses into physical ones?</summary>The <b>MMU</b> (hardware in the CPU), using the <b>page table</b> that the <b>kernel</b> (the OS) sets up.</details>
+    <details><summary>If I just make up an address like <code>0x123456</code> in my program and read it, will it work?</summary>Only if that address is inside a page the OS gave to your process with read permission. Usually it isn't, so you'd get a segfault. Having a number is not the same as having permission.</details>
+    <details><summary>Can a stack overflow happen even if the computer has lots of free RAM?</summary>Yes. The stack has its own small size limit (a few MB) that is separate from how much RAM is free. You'll see it happen in Part 1.6.</details>
+  </div>
+</main>
+<script src="../assets/site.js"></script>
+</body>
+</html>

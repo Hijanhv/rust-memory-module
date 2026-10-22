@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What a memory bug is</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main>
+  <div class="kicker">Lesson 2 · Part 1</div>
+  <h1>What a memory bug really is</h1>
+  <p class="lede">Before we write broken code on purpose, let's define exactly what "broken" means.</p>
+
+  <div class="oneline"><b>In one sentence</b>A memory bug is touching memory you're not allowed to touch right now, and the result is undefined behaviour: anything can happen.</div>
+
+  <h2>The formal definition of memory safety</h2>
+  <p>A program is <b>memory safe</b> if every time it reads or writes memory, all of these are true:</p>
+  <ol class="steps">
+    <li>The memory is <b>allocated</b> (it belongs to a real, existing value).</li>
+    <li>The access is <b>inside the bounds</b> of that value (not past its end).</li>
+    <li>The value is <b>still alive</b> (not freed yet).</li>
+    <li>If other threads use it too, the access is <b>synchronised</b> (a lock or an atomic).</li>
+  </ol>
+  <p>Break any one and you have a memory bug. They group into three families:</p>
+  <div class="table-wrap"><table>
+    <tr><th>Family</th><th>Question it asks</th><th>Bug in this lesson</th></tr>
+    <tr><td><b>Spatial</b> safety</td><td><i>Where</i>: is this address inside the object?</td><td>Buffer overflow</td></tr>
+    <tr><td><b>Temporal</b> safety</td><td><i>When</i>: is the object still alive?</td><td>Use-after-free</td></tr>
+    <tr><td><b>Thread</b> safety</td><td><i>Who</i>: is anyone else touching it at the same time?</td><td>Data race</td></tr>
+  </table></div>
+  <p class="analogy">Analogy: a hotel room. Spatial bug = walking into the room next to yours. Temporal bug = using your key after you checked out (someone else may be staying there now). Data race = two guests booked into the same room, both rearranging the furniture.</p>
+
+  <h2>Undefined behaviour (UB)</h2>
+  <p>This is the most important idea in the lesson.</p>
+  <ol class="steps">
+    <li>The compiler is allowed to <b>assume your program never does UB</b>. It optimises your code based on that promise.</li>
+    <li>So when UB happens, the rules are off. Not "you get a random number". Literally <b>no guarantee about anything</b>, including code far away from the bug.</li>
+    <li>It might crash. It might print garbage. It might <b>look perfectly fine</b> on your laptop and fail on a server. The last one is the scariest.</li>
+  </ol>
+  <div class="note warn"><b>"It worked when I ran it" proves nothing</b> when UB is involved. A program with UB is broken even on the runs where the output looks right.</div>
+
+  <h2>Safe Rust vs unsafe Rust</h2>
+  <p>In <b>safe Rust</b> (normal Rust), the compiler proves all four rules above for you. If it can't prove it, it won't compile. That's why safe Rust can't have these bugs at all.</p>
+  <p>Inside an <code>unsafe { }</code> block you get five extra powers. The compiler trusts <b>you</b> to follow the rules:</p>
+  <ol class="steps">
+    <li>Follow (dereference) a <b>raw pointer</b> (<code>*const T</code>, <code>*mut T</code>)</li>
+    <li>Call an <code>unsafe fn</code></li>
+    <li>Read or write a <code>static mut</code></li>
+    <li>Implement an <code>unsafe trait</code></li>
+    <li>Read fields of a <code>union</code></li>
+  </ol>
+  <p>That's all. <code>unsafe</code> does <b>not</b> switch off the borrow checker or type checks. It only unlocks those five things. The next three lessons use powers 1 and 3.</p>
+
+  <div class="note"><b>Why unsafe exists at all:</b> talking to hardware, calling C libraries, and building things like <code>Vec</code> itself. Vec is written with unsafe code inside, carefully, so that <i>you</i> get a safe interface.</div>
+
+  <div class="quiz">
+    <h2>Check yourself</h2>
+    <details><summary>Reading index 10 of a 5-item array: spatial or temporal?</summary>Spatial. It's about <i>where</i>: outside the bounds.</details>
+    <details><summary>Reading a Box after it was dropped: spatial or temporal?</summary>Temporal. The address may be fine, but the value is no longer alive.</details>
+    <details><summary>My UB program printed the right answer 100 times. Is it OK?</summary>No. UB means the compiler and hardware owe you nothing. A different compiler version, optimisation level or machine can change the result.</details>
+    <details><summary>Does <code>unsafe</code> turn off the borrow checker?</summary>No. It only unlocks five specific powers, like dereferencing raw pointers and touching <code>static mut</code>.</details>
+  </div>
+</main>
+<script src="../assets/site.js"></script>
+</body>
+</html>

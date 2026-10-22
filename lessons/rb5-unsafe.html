@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unsafe Rust basics</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main>
+  <div class="kicker">Rust Book essentials · Chapter 20.1</div>
+  <h1>Unsafe Rust: raw pointers and static mut</h1>
+  <p class="lede">Lesson 2 breaks things on purpose using unsafe. Here's what the keyword actually allows, before we use it.</p>
+
+  <div class="oneline"><b>In one sentence</b>An unsafe block lets you do five extra things the compiler can't check, and you become responsible for keeping them safe.</div>
+
+  <div class="note">From the Rust Book: <a href="https://doc.rust-lang.org/book/ch20-01-unsafe-rust.html">20.1 Unsafe Rust</a>.</div>
+
+  <h2>Why unsafe exists</h2>
+  <p>The compiler is careful: if it can't <b>prove</b> code is safe, it rejects it, even if the code is actually fine. Also, some jobs are unsafe by nature: talking directly to hardware, calling C code, or building low-level types like <code>Vec</code>. <code>unsafe</code> is the escape hatch for those.</p>
+
+  <h2>The five superpowers</h2>
+  <p>Inside <code>unsafe { }</code> you can:</p>
+  <ol class="steps">
+    <li><b>Dereference a raw pointer</b> (follow it with <code>*</code>)</li>
+    <li>Call an unsafe function</li>
+    <li><b>Read or change a <code>static mut</code></b></li>
+    <li>Implement an unsafe trait</li>
+    <li>Access fields of a <code>union</code></li>
+  </ol>
+  <p>Lesson 2 uses powers <b>1</b> (use-after-free, buffer overflow) and <b>3</b> (data race).</p>
+  <div class="note warn"><b>unsafe does NOT turn off the borrow checker</b> or any other check. It only unlocks these five things. Everything else is still verified.</div>
+
+  <h2>Raw pointers</h2>
+  <p>A raw pointer is just an address with no promises attached:</p>
+  <div class="table-wrap"><table>
+    <tr><th>Reference <code>&amp;T</code></th><th>Raw pointer <code>*const T</code> / <code>*mut T</code></th></tr>
+    <tr><td>Always points at a live value</td><td>Might point at freed memory, or nowhere</td></tr>
+    <tr><td>Borrow rules enforced</td><td>No borrow rules: many <code>*mut</code> to the same thing is allowed</td></tr>
+    <tr><td>Never null</td><td>Can be null</td></tr>
+    <tr><td>Freed automatically? N/A (doesn't own)</td><td>Doesn't own, never frees anything</td></tr>
+  </table></div>
+<pre><code>let mut num = 5;
+
+let r1 = &amp;raw const num;      // making raw pointers is SAFE
+let r2 = &amp;raw mut num;        // (older style: &amp;num as *const i32)
+
+unsafe {
+    println!("r1 is {}", *r1);  // FOLLOWING them needs unsafe
+    *r2 = 10;
+}</code></pre>
+  <p>Creating a raw pointer can't hurt anything. It's just a number. Danger only starts when you <b>follow</b> it, so that's the part marked unsafe.</p>
+
+  <h3>Raw pointer tools used in Lesson 2</h3>
+<pre><code>let b = Box::new(5);
+let p: *mut i32 = Box::into_raw(b);   // Box -> raw pointer. Rust stops freeing it for you.
+let b2 = unsafe { Box::from_raw(p) }; // raw pointer -> Box. Rust will free it again.
+
+let mut buf = [0u8; 5];
+let ptr = buf.as_mut_ptr();           // raw pointer to buf[0]
+unsafe { *ptr.add(2) = 9; }           // ptr.add(2) = address of buf[2]. No bounds check!</code></pre>
+
+  <h2>static mut</h2>
+<pre><code>static mut COUNTER: u32 = 0;
+
+fn add() {
+    unsafe { COUNTER += 1; }       // every read or write of a static mut needs unsafe
+}</code></pre>
+  <p>Why unsafe? A static is visible to <b>every thread</b>. If two threads change it at the same time, that's a data race. The compiler can't prove you won't do that, so it makes you promise. (Modern Rust even warns about taking references to it. That's the <code>#![allow(static_mut_refs)]</code> line you'll see in Lesson 2.) In real code, use an atomic or a Mutex instead.</p>
+
+  <h2>The golden rule</h2>
+  <p>Keep unsafe blocks <b>tiny</b>, and wrap them in a safe function that checks everything first. That's how <code>Vec</code> is written. If something goes wrong, you know exactly which few lines to inspect.</p>
+
+  <h2>Symbol decoder for Lessons 1 and 2</h2>
+  <div class="table-wrap"><table>
+    <tr><th>You see</th><th>It means</th></tr>
+    <tr><td><code>&amp;x</code> / <code>&amp;mut x</code></td><td>Borrow x (read-only / read-write)</td></tr>
+    <tr><td><code>*p</code></td><td>Follow pointer p to the value</td></tr>
+    <tr><td><code>{:p}</code></td><td>Print as an address</td></tr>
+    <tr><td><code>i as u8</code></td><td>Convert to u8</td></tr>
+    <tr><td><code>*const T</code>, <code>*mut T</code></td><td>Raw pointers</td></tr>
+    <tr><td><code>Box::into_raw</code> / <code>Box::from_raw</code></td><td>Leave / re-enter Rust's automatic cleanup</td></tr>
+    <tr><td><code>drop(x)</code></td><td>Clean up x now</td></tr>
+    <tr><td><code>ptr.add(i)</code></td><td>Address i items after ptr</td></tr>
+    <tr><td><code>static mut</code></td><td>Global you can change, needs unsafe</td></tr>
+    <tr><td><code>move || { }</code></td><td>Closure that owns what it uses</td></tr>
+    <tr><td><code>#![allow(...)]</code></td><td>Turn off one compiler warning for this file</td></tr>
+  </table></div>
+
+  <div class="quiz">
+    <h2>Check yourself</h2>
+    <details><summary>Is creating a raw pointer unsafe?</summary>No. Only <b>dereferencing</b> it is.</details>
+    <details><summary>Name two of the five unsafe superpowers.</summary>Any two of: dereference a raw pointer, call an unsafe fn, access a static mut, implement an unsafe trait, read union fields.</details>
+    <details><summary>Does a raw pointer free memory when it goes out of scope?</summary>No. It owns nothing. That's why <code>Box::into_raw</code> without a matching <code>Box::from_raw</code> leaks memory.</details>
+    <details><summary>Why does touching a <code>static mut</code> need unsafe?</summary>Any thread can access it, and the compiler can't prove there's no data race.</details>
+  </div>
+</main>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mastery test</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main>
+  <div class="kicker">Prove it</div>
+  <h1>Mastery test: Lessons 1 and 2</h1>
+  <p class="lede">No peeking at old pages. If you get 90% or more here, you really understand this module.</p>
+
+  <h2>Game 1: Where does it live?</h2>
+  <p>For each thing, pick the memory region where <b>that data</b> lives.</p>
+  <div id="game"></div>
+
+  <h2>Game 2: The big quiz</h2>
+  <p>Pick one answer per question. You get the explanation right after.</p>
+  <div id="quiz"></div>
+
+  <div class="score" id="score">Score: 0 / 0</div>
+</main>
+<script src="../assets/site.js"></script>
+<script>
+const R = ["Stack", "Heap", "Static", "Code"];
+const ITEMS = [
+  ["The 5 in <code>let x: i32 = 5;</code>", "Stack", "Plain local values live in the function's stack frame."],
+  ["The 5 in <code>Box::new(5)</code>", "Heap", "That's the whole point of Box: put the value on the heap."],
+  ["The Box variable itself (the pointer)", "Stack", "The pointer is a normal local, 8 bytes on the stack."],
+  ["The letters of <code>\"hello\"</code>", "Static", "String literals are baked into the program's read-only data."],
+  ["The items of <code>vec![1, 2, 3]</code>", "Heap", "Vec items always live on the heap."],
+  ["A Vec's pointer, length and capacity", "Stack", "The 24-byte Vec \"header\" is a local on the stack."],
+  ["<code>static MAX: u32 = 100;</code>", "Static", "Declared with static, lives for the whole program."],
+  ["The machine instructions of <code>fn main</code>", "Code", "Compiled code lives in the text segment: read + execute."],
+  ["The letters of <code>String::from(\"hi\")</code>", "Heap", "String::from copies the literal's bytes into a new heap block."],
+  ["A local array <code>let a = [0u8; 5];</code>", "Stack", "Fixed size known at compile time, so the whole array sits on the stack."],
+  ["The argument <code>input</code> in <code>fn foo(input: i32)</code>", "Stack", "Arguments are copied into the new function's frame."],
+  ["A <code>static</code> declared inside a function", "Static", "Short scope, but the memory lives for the whole program."],
+];
+const QS = [
+  ["Who translates a virtual address into a physical RAM address?", ["The MMU, using the kernel's page table", "The Rust compiler", "The heap allocator", "Cargo"], 0, "The MMU is hardware inside the CPU. The kernel fills in the page table it reads."],
+  ["What page size do Apple Silicon Macs use?", ["4 KB", "16 KB", "1 MB", "8 bytes"], 1, "Most Linux/Intel machines use 4 KB. M-series Macs use 16 KB. Check with <code>pagesize</code>."],
+  ["Which region can be read and executed but NOT written?", ["Stack", "Heap", "Text (code)", "BSS"], 2, "Code is read + execute only, so a bug can't rewrite your instructions."],
+  ["When does a program get a segfault?", ["When RAM is full", "When it touches a page it doesn't own, or breaks a page's permission", "Every time a page fault happens", "When the heap grows"], 1, "Normal page faults are handled quietly by the OS. A segfault is an illegal access."],
+  ["The stack grows ___ and the heap grows ___.", ["up, down", "down, up", "both up", "both down"], 1, "Stack starts high and grows toward lower addresses. Heap grows upward."],
+  ["A Vec has len 4 and capacity 4. You push again. What happens?", ["Panic", "It overwrites the next memory", "It allocates a bigger block, copies the items, frees the old block", "Capacity goes to 5 in place"], 2, "And the pointer on the stack changes to the new block."],
+  ["<code>size_of::&lt;&amp;str&gt;()</code> on a 64-bit machine is:", ["8", "16", "24", "Depends on the text"], 1, "A fat pointer: 8 bytes of address + 8 bytes of length."],
+  ["When is a Box's heap memory freed?", ["When the function's frame is popped by the CPU", "When the Box's owner goes out of scope and Rust drops it", "Never", "When the garbage collector runs"], 1, "The compiler inserts a drop at the end of the scope. Rust has no garbage collector."],
+  ["Why does <code>static V: Vec&lt;i32&gt; = vec![1];</code> fail?", ["Vec can't hold i32", "Statics can't be generic", "vec! allocates on the heap at runtime, but a static must be known at compile time", "It needs mut"], 2, "Static values are baked in at compile time."],
+  ["Undefined behaviour means:", ["The program always crashes", "You get a random number", "The compiler and CPU guarantee nothing, and it may even look fine", "A compile error"], 2, "Looking fine is the most dangerous outcome."],
+  ["Use-after-free is which kind of safety bug?", ["Spatial", "Temporal", "Thread", "Type"], 1, "The address was valid, but the object was no longer alive. That's about time."],
+  ["You write 6 bytes into a 5-byte buffer and the neighbour variable is unchanged. Is the program OK?", ["Yes, nothing changed", "No, it still has UB, the byte just landed in padding", "Yes, Rust fixed it", "Only in release mode"], 1, "Invisible damage is still damage."],
+  ["Which is NOT one of the four data race conditions?", ["Two threads at the same time", "Same memory", "At least one write", "One thread must crash"], 3, "The four are: concurrent threads, same memory, at least one write, no synchronisation."],
+  ["Why can <code>COUNTER += 1</code> lose updates across threads?", ["It's really read, add, write, and another thread can sneak in between", "usize is too small", "Threads can't read statics", "println! is slow"], 0, "Two threads read 5, both write 6. Two increments, one counted."],
+  ["Which of these fixes the counter in SAFE Rust?", ["Making it static mut", "AtomicUsize::fetch_add or Arc&lt;Mutex&gt;", "Adding thread::sleep", "Running fewer threads"], 1, "Atomics make the step indivisible. A Mutex lets one thread in at a time."],
+  ["Does <code>unsafe</code> turn off the borrow checker?", ["Yes, completely", "No, it only unlocks five extra powers like raw pointer deref and static mut", "Only for threads", "Only in debug builds"], 1, "Everything else is still checked."],
+];
+
+let score = 0, answered = 0;
+const total = ITEMS.length + QS.length;
+function upd() {
+  const pct = answered ? Math.round((score / answered) * 100) : 0;
+  let msg = `Score: ${score} / ${answered} answered (of ${total})`;
+  if (answered === total) {
+    msg = score / total >= 0.9 ? `${score} / ${total}. You're a Lesson 1 + 2 maxi. 🎉` : `${score} / ${total} (${pct}%). Re-read the pages for the ones you missed, then try again.`;
+    try { localStorage.setItem("rmm-best", String(Math.max(score, +(localStorage.getItem("rmm-best") || 0)))); } catch {}
+  }
+  document.getElementById("score").textContent = msg;
+}
+document.getElementById("game").innerHTML = ITEMS.map((it, i) =>
+  `<div class="game-item" data-i="${i}"><span>${it[0]}</span><div class="opts">${R.map((r) => `<button data-r="${r}">${r}</button>`).join("")}</div><div class="why"></div></div>`).join("");
+document.querySelectorAll(".game-item").forEach((el) => {
+  const it = ITEMS[+el.dataset.i];
+  el.querySelectorAll("button").forEach((b) => (b.onclick = () => {
+    if (el.classList.contains("right") || el.classList.contains("wrong")) return;
+    const ok = b.dataset.r === it[1];
+    el.classList.add(ok ? "right" : "wrong");
+    b.classList.add("primary");
+    el.querySelector(".why").innerHTML = (ok ? "✓ " : `✗ It's <b>${it[1]}</b>. `) + it[2];
+    answered++; if (ok) score++; upd();
+  }));
+});
+document.getElementById("quiz").innerHTML = QS.map((q, i) =>
+  `<div class="mcq" data-i="${i}"><div class="qq">${i + 1}. ${q[0]}</div>${q[1].map((o, j) => `<label data-j="${j}">${String.fromCharCode(65 + j)}. ${o}</label>`).join("")}<div class="why">${q[3]}</div></div>`).join("");
+document.querySelectorAll(".mcq").forEach((el) => {
+  const q = QS[+el.dataset.i];
+  el.querySelectorAll("label").forEach((l) => (l.onclick = () => {
+    if (el.classList.contains("done")) return;
+    el.classList.add("done");
+    const j = +l.dataset.j;
+    el.querySelectorAll("label")[q[2]].classList.add("right");
+    if (j !== q[2]) l.classList.add("wrong"); else score++;
+    answered++; upd();
+  }));
+});
+upd();
+</script>
+</body>
+</html>

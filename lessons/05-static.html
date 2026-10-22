@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Static memory and strings</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main class="wide">
+  <div class="kicker">Lesson 1 · Part 5</div>
+  <h1>Static memory and strings</h1>
+  <p class="lede">Some data is baked into your program file and exists from the first instruction to the last.</p>
+
+  <div class="oneline"><b>In one sentence</b>Static memory is fixed when you compile, lives for the whole program, and is never freed.</div>
+
+  <h2>What lives in static memory</h2>
+  <ol class="steps">
+    <li><b>String literals.</b> Any text in double quotes, like <code>"Hello"</code>. Always static, automatically. You don't write <code>static</code>.</li>
+    <li><b>Static variables</b> you declare with <code>static NAME: Type = value;</code>.</li>
+  </ol>
+  <p class="analogy">Analogy: static memory is text printed in a book. It's there before you open it and still there when you close it. The stack and heap are sticky notes you add and remove while reading.</p>
+
+  <h2>Scope vs lifetime (the tricky bit)</h2>
+  <p>These two words sound similar but mean different things:</p>
+  <ul>
+    <li><b>Lifetime</b> = how long the <i>memory</i> exists. For statics: the whole program.</li>
+    <li><b>Scope</b> = where in your code the <i>name</i> can be used.</li>
+  </ul>
+  <p>A static declared inside a function has a <b>short scope</b> (only that function can say its name) but a <b>full-program lifetime</b> (the memory never goes away).</p>
+  <div id="s1"></div>
+
+  <h2>&amp;str vs String</h2>
+  <p>This trips up everyone. They both hold text, but they live in different places.</p>
+  <div id="s2"></div>
+  <div class="table-wrap"><table>
+    <tr><th></th><th><code>&amp;str</code> (string slice)</th><th><code>String</code></th></tr>
+    <tr><td>On the stack</td><td>pointer + length (16 bytes)</td><td>pointer + length + capacity (24 bytes)</td></tr>
+    <tr><td>The letters live in</td><td>static memory (for a literal)</td><td>the heap</td></tr>
+    <tr><td>Can grow?</td><td>No</td><td>Yes, <code>push_str</code></td></tr>
+    <tr><td>Owns its data?</td><td>No, it borrows</td><td>Yes</td></tr>
+  </table></div>
+
+  <h2>Rules for statics</h2>
+  <p>The value must be known <b>at compile time</b>. So these fail:</p>
+<pre><code>fn main() {
+    static NUMBERS: Vec&lt;i32&gt; = vec![5, 6];   // ERROR: vec! allocates on the heap at runtime
+    let n: i32 = 55;
+    static NUMBER: i32 = n;                  // ERROR: n is a runtime stack value
+}</code></pre>
+  <p>And changing a static needs <code>static mut</code> plus <code>unsafe</code>, because any thread could touch it at any time. That's exactly the data race in Lesson 2.</p>
+
+  <div class="note"><b>static vs const.</b> A <code>const</code> is copied into every place you use it (no single address). A <code>static</code> has exactly <b>one</b> fixed address in memory. Use const for plain constants, static when you need one shared location.</div>
+
+  <div class="table-wrap"><table>
+    <tr><th>Good at</th><th>Bad at</th></tr>
+    <tr><td>Lives for the whole program</td><td>Mutating needs <code>unsafe</code></td></tr>
+    <tr><td>Fixed address, fast to reach</td><td>Value must be known at compile time</td></tr>
+    <tr><td>No allocation or freeing ever</td><td>Global state makes code harder to reason about</td></tr>
+    <tr><td>Great for constants and config</td><td>Shared by all threads, so changes need locks or atomics</td></tr>
+  </table></div>
+
+  <div class="try"><b class="t">Try it</b>
+    <pre>cargo run --example 04_static_strings</pre>
+    <p>Two identical literals print the <b>same</b> address (stored once). The <code>String</code> copy prints a different, heap address.</p>
+  </div>
+
+  <div class="quiz">
+    <h2>Check yourself</h2>
+    <details><summary>Is a string literal on the stack, heap, or static?</summary>Static (read-only). A <code>&amp;str</code> variable on the stack just points at it.</details>
+    <details><summary>After a function with a local <code>static</code> returns, is the static's memory freed?</summary>No. The memory lives for the whole program. Only the <i>name</i> stops being usable outside that function.</details>
+    <details><summary>What does <code>String::from("hi")</code> do in memory?</summary>Allocates a heap block and <b>copies</b> the bytes of the static literal "hi" into it. Now there are two copies: one static, one on the heap.</details>
+    <details><summary>Why can't <code>static V: Vec&lt;i32&gt; = vec![1];</code> compile?</summary><code>vec!</code> needs the heap at runtime, but a static's value must be fully known at compile time.</details>
+  </div>
+</main>
+<script src="../assets/site.js"></script>
+<script>
+stepper(document.getElementById("s1"), {
+  title: "Statics outside and inside main",
+  cols: ["Stack", "Static"],
+  code: `
+static GREETING_OUTER: &str = "Hello, universe!";
+
+fn main() {
+    println!("{}", GREETING);
+    println!("{}", GREETING_OUTER);
+
+    static GREETING: &str = "Hello, world!";
+}`,
+  steps: [
+    { line: [], cols: { Stack: [], Static: [{ t: "GREETING_OUTER", f: "new", r: [["→", "\"Hello, universe!\""]] }, { t: "GREETING", f: "new", r: [["→", "\"Hello, world!\""]] }] },
+      note: "<b>Before main even runs</b>, both statics already exist. They were baked into the program file and loaded with it. Even GREETING, declared at the bottom of main." },
+    { line: 3, cols: { Stack: [{ t: "main()", f: "new", r: [] }], Static: [{ t: "GREETING_OUTER", r: [["→", "\"Hello, universe!\""]] }, { t: "GREETING", r: [["→", "\"Hello, world!\""]] }] },
+      note: "main's frame is pushed. It's empty: main has no local variables of its own." },
+    { line: 4, cols: { Stack: [{ t: "main()", r: [["(temp ref)", "→ GREETING", "new"]] }], Static: [{ t: "GREETING_OUTER", r: [["→", "\"Hello, universe!\""]] }, { t: "GREETING", f: "new", r: [["→", "\"Hello, world!\""]] }] },
+      note: "We use GREETING <i>before</i> the line that declares it. That's allowed: statics are items, not normal <code>let</code> lines, so their position inside the block doesn't matter. Its <b>scope</b> is only main." },
+    { line: 5, cols: { Stack: [{ t: "main()", r: [["(temp ref)", "→ GREETING_OUTER", "new"]] }], Static: [{ t: "GREETING_OUTER", f: "new", r: [["→", "\"Hello, universe!\""]] }, { t: "GREETING", r: [["→", "\"Hello, world!\""]] }] },
+      note: "GREETING_OUTER is declared outside every function, so it is <b>global</b>: any function can use it." },
+    { line: 8, cols: { Stack: [{ t: "main()", f: "freed", r: [] }], Static: [{ t: "GREETING_OUTER", r: [["→", "\"Hello, universe!\""]] }, { t: "GREETING", r: [["→", "\"Hello, world!\""]] }] },
+      note: "main's frame is popped. The statics are <b>still there</b>. They only disappear when the whole process exits and the OS takes back all its pages." },
+  ],
+});
+stepper(document.getElementById("s2"), {
+  title: "&str vs String",
+  cols: ["Stack", "Heap", "Static"],
+  code: `
+let a: &str = "hi";
+let mut s: String = String::from(a);
+s.push_str("!");`,
+  steps: [
+    { line: 1, cols: { Stack: [{ t: "a: &str", f: "new", r: [["ptr", "→ static"], ["len", "2"]] }], Heap: [], Static: [{ t: "literal", r: [["bytes", "h i"]] }] },
+      note: "The letters <code>h i</code> are already in static memory. <code>a</code> is a <b>fat pointer</b>: an address plus a length. It doesn't own anything." },
+    { line: 2, cols: { Stack: [{ t: "a: &str", r: [["ptr", "→ static"], ["len", "2"]] }, { t: "s: String", f: "new", r: [["ptr", "→ 0xA0"], ["len", "2"], ["cap", "2"]] }], Heap: [{ t: "0xA0", f: "new", r: [["bytes", "h i"]] }], Static: [{ t: "literal", r: [["bytes", "h i"]] }] },
+      note: "<code>String::from</code> allocates on the heap and <b>copies</b> the letters there. Now s owns its own copy." },
+    { line: 3, cols: { Stack: [{ t: "a: &str", r: [["ptr", "→ static"], ["len", "2"]] }, { t: "s: String", r: [["ptr", "→ 0xC0", "new"], ["len", "3", "new"], ["cap", "8", "new"]] }], Heap: [{ t: "0xA0", f: "freed", r: [["bytes", "h i"]] }, { t: "0xC0", f: "new", r: [["bytes", "h i !"]] }], Static: [{ t: "literal", r: [["bytes", "h i"]] }] },
+      note: "A String is basically a <code>Vec&lt;u8&gt;</code>. It was full, so it grew into a bigger block, just like the Vec in Part 1.4. The static literal never changes." },
+  ],
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data race</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main class="wide">
+  <div class="kicker">Lesson 2 · Part 4</div>
+  <h1>Data race</h1>
+  <p class="lede">Two threads add 1 to the same counter at the same moment. One of the additions disappears.</p>
+
+  <div class="oneline"><b>In one sentence</b>A data race is two threads touching the same memory at once, at least one writing, with nothing coordinating them.</div>
+
+  <h2>The four conditions</h2>
+  <p>It's only a data race if <b>all four</b> are true. Remove any one and it's gone:</p>
+  <ol class="steps">
+    <li>Two or more threads run at the same time.</li>
+    <li>They access the <b>same memory</b>.</li>
+    <li>At least one access is a <b>write</b>.</li>
+    <li>There's <b>no synchronisation</b> (no Mutex, no atomic).</li>
+  </ol>
+
+  <h2>Why <code>COUNTER += 1</code> isn't one step</h2>
+  <p>It looks like one action, but the CPU does three:</p>
+  <ol class="steps">
+    <li><b>Read</b> COUNTER from memory into a register.</li>
+    <li><b>Add</b> 1 in the register.</li>
+    <li><b>Write</b> the result back to memory.</li>
+  </ol>
+  <p>If another thread sneaks in between step 1 and step 3, an update is lost. Watch:</p>
+  <div id="s1"></div>
+
+  <h2>Real output from my Mac</h2>
+<pre>$ cargo run --example 09_data_race
+round 1: expected 8000, got 6151. 1849 updates lost.</pre>
+  <p>8 threads × 1000 increments should be 8000. Nearly a quarter vanished on the very first try. Nothing crashed, nothing warned. Just a wrong number. Run it again and you'll get a different wrong number.</p>
+
+  <h2>The safe fixes</h2>
+  <p>Remove condition 4 by adding synchronisation:</p>
+<pre><code>use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
+
+// Fix 1: an atomic. Read-add-write happens as ONE indivisible step.
+static ATOMIC: AtomicUsize = AtomicUsize::new(0);
+ATOMIC.fetch_add(1, Ordering::Relaxed);
+
+// Fix 2: a Mutex. Only one thread can hold the lock at a time.
+let locked = Arc::new(Mutex::new(0));
+*locked.lock().unwrap() += 1;</code></pre>
+  <div class="try"><b class="t">Try it</b>
+    <pre>cargo run --example 10_data_race_fixed</pre>
+    <p>Prints <code>atomic: 8000</code> and <code>mutex : 8000</code>. Every time. And notice: no <code>unsafe</code> anywhere.</p>
+  </div>
+  <p><code>Arc</code> = "Atomically Reference Counted": lets several threads share ownership of one heap value. <code>Mutex</code> = "mutual exclusion": a lock.</p>
+
+  <h2>UB doesn't stay inside the unsafe block</h2>
+  <p>The unsafe block was one line, <code>COUNTER += 1</code>. But the wrong number shows up in the final <code>println!</code>, outside it. That's true for all three bugs: the overflow changed <code>not_in_buffer</code>, the use-after-free read <code>y</code>'s data. Once UB happens, <b>no part of the program can be trusted</b>.</p>
+
+  <div class="note"><b>Optional, no install:</b> the online <a href="https://play.rust-lang.org">Rust Playground</a> has a button under <i>Tools → Miri</i>. Miri is a checker that runs your program slowly and watches every memory access. Paste any of the three bug examples in and it will name the bug instantly. You don't need it for this course.</div>
+
+  <div class="quiz">
+    <h2>Check yourself</h2>
+    <details><summary>Two threads only <i>read</i> the same variable. Data race?</summary>No. Condition 3 fails: nobody writes. Reading together is always fine.</details>
+    <details><summary>Why can updates be lost with <code>+= 1</code>?</summary>It's really read, add, write. Two threads can read the same old value, both add 1, and both write the same result. Two increments, one counted.</details>
+    <details><summary>Name two safe ways to fix it.</summary>An atomic (<code>AtomicUsize::fetch_add</code>) or a lock (<code>Arc&lt;Mutex&lt;_&gt;&gt;</code>).</details>
+    <details><summary>The unsafe block was one line. Which parts of the program are affected by the UB?</summary>Potentially all of it. UB breaks the compiler's assumptions everywhere, not just in that block.</details>
+  </div>
+</main>
+<script src="../assets/site.js"></script>
+<script>
+stepper(document.getElementById("s1"), {
+  title: "Two threads, one counter",
+  cols: ["Thread A", "Thread B", "Static memory"],
+  code: `
+static mut COUNTER: usize = 5;
+
+// both threads run this at the same time:
+unsafe {
+    COUNTER += 1;   // read, add, write
+}`,
+  steps: [
+    { line: 1, cols: { "Thread A": [], "Thread B": [], "Static memory": [{ t: "COUNTER", r: [["value", "5"]] }] },
+      note: "COUNTER starts at 5. Two threads are about to add 1 each. The right answer is <b>7</b>." },
+    { line: 5, cols: { "Thread A": [{ t: "register", f: "new", r: [["read", "5"]] }], "Thread B": [], "Static memory": [{ t: "COUNTER", r: [["value", "5"]] }] },
+      note: "Thread A <b>reads</b> COUNTER: 5." },
+    { line: 5, cols: { "Thread A": [{ t: "register", r: [["read", "5"]] }], "Thread B": [{ t: "register", f: "new", r: [["read", "5"]] }], "Static memory": [{ t: "COUNTER", r: [["value", "5"]] }] },
+      note: "Before A writes, Thread B also <b>reads</b> COUNTER. It's still 5. This is the moment it goes wrong." },
+    { line: 5, cols: { "Thread A": [{ t: "register", r: [["5 + 1", "6", "new"]] }], "Thread B": [{ t: "register", r: [["5 + 1", "6", "new"]] }], "Static memory": [{ t: "COUNTER", r: [["value", "5"]] }] },
+      note: "Both <b>add</b> 1 to the value they read. Both get 6." },
+    { line: 5, cols: { "Thread A": [{ t: "register", r: [["write", "6"]] }], "Thread B": [{ t: "register", r: [["5 + 1", "6"]] }], "Static memory": [{ t: "COUNTER", r: [["value", "6", "new"]] }] },
+      note: "A <b>writes</b> 6." },
+    { line: 5, cols: { "Thread A": [], "Thread B": [{ t: "register", r: [["write", "6"]] }], "Static memory": [{ t: "COUNTER", f: "bad", r: [["value", "6", "bad"]] }] },
+      note: "B <b>writes</b> 6 too, overwriting A's work. Two increments happened, but COUNTER is <b>6, not 7</b>. One update was lost, silently." },
+  ],
+});
+</script>
+</body>
+</html>

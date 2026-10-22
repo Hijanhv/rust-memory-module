@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wrap-up</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main>
+  <div class="kicker">Optional · After Lesson 2</div>
+  <h1>Wrap-up and a peek at Lesson 3</h1>
+  <p class="lede">Lesson 3 is about how safe Rust makes every bug you just wrote impossible. Here's a head start.</p>
+
+  <div class="oneline"><b>In one sentence</b>Ownership, borrowing and lifetimes are the compiler's way of checking the memory safety rules from Lesson 2 before your program ever runs.</div>
+
+  <h2>Bug → the safe Rust rule that stops it</h2>
+  <div class="table-wrap"><table>
+    <tr><th>Bug</th><th>Rule that prevents it</th><th>What you see instead</th></tr>
+    <tr><td>Use-after-free</td><td><b>Ownership</b>: one owner, value dropped once, moved names are dead</td><td>Compile error E0382 "borrow of moved value"</td></tr>
+    <tr><td>Dangling reference</td><td><b>Lifetimes</b>: a reference can't outlive the value it points to</td><td>Compile error "returns a reference to data owned by the current function"</td></tr>
+    <tr><td>Buffer overflow</td><td><b>Bounds checks</b> on every index</td><td>A clean panic at runtime</td></tr>
+    <tr><td>Data race</td><td><b>Borrowing</b>: many <code>&amp;</code> readers OR one <code>&amp;mut</code> writer, never both. Plus <code>Send</code>/<code>Sync</code> for threads.</td><td>Compile error</td></tr>
+  </table></div>
+
+  <h2>The borrowing rule is the data race rule</h2>
+  <p>Look at the four data race conditions again. Borrowing says: at any moment, either <b>many readers</b> or <b>exactly one writer</b>. That makes condition 3 (someone writes while others access) impossible. Same idea, checked at compile time.</p>
+
+  <div class="try"><b class="t">Try it: make the compiler say no</b>
+    <p>Open <code>lab/examples/11_safe_rust_says_no.rs</code>. Uncomment one block at a time and run:</p>
+    <pre>cargo run --example 11_safe_rust_says_no</pre>
+    <p>Read each error message slowly. Rust's errors explain exactly which rule you broke. Getting comfortable reading them is half of Lesson 3.</p>
+  </div>
+
+  <h2>Before next class: checklist</h2>
+  <ol class="steps">
+    <li>Can you draw the process memory map from memory? (code, data, BSS, heap, stack)</li>
+    <li>Can you say where <code>let s = "hi";</code> and <code>String::from("hi")</code> keep their letters?</li>
+    <li>Can you explain why a Vec's pointer changes when it grows?</li>
+    <li>Can you name the four memory safety rules and the three bug families?</li>
+    <li>Can you explain why the data race lost updates?</li>
+    <li>Read <a href="https://doc.rust-lang.org/book/ch04-00-understanding-ownership.html">Rust Book chapter 4 (Ownership)</a> fully. This is the one chapter that really matters for Lesson 3.</li>
+    <li>Skim <a href="https://doc.rust-lang.org/book/ch10-03-lifetime-syntax.html">chapter 10.3 (Lifetimes)</a>. Don't worry if it's confusing, that's what class is for.</li>
+  </ol>
+
+  <h2>Coming later: the Module 1 project</h2>
+  <p>Once Lessons 1 and 2 feel solid, we'll build one project that uses everything here: seeing stack, heap and static memory with real addresses, and showing each of the three bugs next to the safe version that stops it.</p>
+</main>
+<script src="../assets/site.js"></script>
+</body>
+</html>

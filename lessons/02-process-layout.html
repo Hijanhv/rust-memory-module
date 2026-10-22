@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Map of a Rust process</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main>
+  <div class="kicker">Lesson 1 · Part 2</div>
+  <h1>The map of a Rust process</h1>
+  <p class="lede">Inside those virtual pages, your program's memory is split into neighbourhoods. Each one has a different job and different rules.</p>
+
+  <div class="oneline"><b>In one sentence</b>Code and fixed data sit at the bottom, the heap grows up from there, the stack grows down from the top.</div>
+
+  <h2>The map</h2>
+  <div class="layout">
+    <div class="addr">High addresses ↑</div>
+    <div class="seg"><div><b>Environment</b><small>Command-line arguments and environment variables</small></div><span class="perm">R W</span></div>
+    <div class="seg stack"><div><b>Stack</b> <span class="tag stack">grows down ↓</span><small>One frame per function call: arguments, local variables</small></div><span class="perm">R W</span></div>
+    <div class="seg gap">free space in between</div>
+    <div class="seg heap"><div><b>Heap</b> <span class="tag heap">grows up ↑</span><small>Box, Vec, String: anything created at runtime</small></div><span class="perm">R W</span></div>
+    <div class="seg static"><div><b>BSS</b><small>Statics whose starting value is all zeros, e.g. <code>static mut COUNT: u32 = 0</code></small></div><span class="perm">R W</span></div>
+    <div class="seg static"><div><b>Data</b><small>Statics with a starting value, string literals like <code>"hello"</code></small></div><span class="perm">R (W only for static mut)</span></div>
+    <div class="seg"><div><b>Text / Code</b><small>Your compiled program: the actual CPU instructions</small></div><span class="perm">R X</span></div>
+    <div class="addr">Low addresses ↓ (0x0)</div>
+  </div>
+
+  <h2>Each region in plain words</h2>
+  <ol class="steps">
+    <li><b>Text (code).</b> Your <code>fn main</code> turned into machine instructions. Read + execute, never write. That's a safety feature: a bug can't overwrite your code.</li>
+    <li><b>Data.</b> Things known when you compile: <code>static</code> values and string literals. Read-only data (like <code>"hello"</code>) technically lives in a sub-part called <code>.rodata</code> (read-only data).</li>
+    <li><b>BSS</b> ("Block Started by Symbol", an old name). Statics that start as zero. The file doesn't need to store all those zeros, the OS just hands over zeroed pages at start-up. In Rust every static must have a value, so BSS = "statics that start at 0".</li>
+    <li><b>Heap.</b> Memory you ask for while the program runs. Grows upward.</li>
+    <li><b>Stack.</b> Function calls. Grows downward. Each thread gets its own stack.</li>
+    <li><b>Environment.</b> The very top holds <code>argv</code> (command-line args) and environment variables like <code>PATH</code>.</li>
+  </ol>
+  <p class="analogy">Analogy: a building. The ground floor (code) is locked glass: you can look, you can't change it. The stack is like stacking boxes down from the ceiling, the heap is stacking boxes up from the floor, and they share the empty middle.</p>
+
+  <h2>Two honest footnotes</h2>
+  <div class="note">
+    <p><b>ASLR.</b> The OS shifts every region by a random amount each time you run (Address Space Layout Randomisation). That makes attacks harder. So the exact addresses change between runs, but the <b>order</b> of regions stays the same.</p>
+    <p><b>It's a simplified picture.</b> Real systems also map big heap allocations and shared libraries in other places. The map above is the right mental model for this course.</p>
+  </div>
+
+  <h2>Where does Rust put things? (cheat sheet)</h2>
+  <div class="table-wrap"><table>
+    <tr><th>Code</th><th>Where the data lives</th></tr>
+    <tr><td><code>let x = 5;</code></td><td><span class="tag stack">stack</span></td></tr>
+    <tr><td><code>let arr = [1, 2, 3];</code></td><td><span class="tag stack">stack</span> (fixed size, so it fits)</td></tr>
+    <tr><td><code>let b = Box::new(5);</code></td><td>pointer on <span class="tag stack">stack</span>, the 5 on <span class="tag heap">heap</span></td></tr>
+    <tr><td><code>let v = vec![1, 2];</code></td><td>ptr/len/capacity on <span class="tag stack">stack</span>, items on <span class="tag heap">heap</span></td></tr>
+    <tr><td><code>let s = "hi";</code></td><td>pointer + length on <span class="tag stack">stack</span>, the letters in <span class="tag static">static</span></td></tr>
+    <tr><td><code>static N: i32 = 1;</code></td><td><span class="tag static">static</span></td></tr>
+    <tr><td><code>fn main() {}</code></td><td>text / code</td></tr>
+  </table></div>
+
+  <div class="quiz">
+    <h2>Check yourself</h2>
+    <details><summary>Why is the code region not writable?</summary>So no bug (or attacker) can change the instructions your program runs.</details>
+    <details><summary>The stack grows ___ and the heap grows ___.</summary>Stack grows <b>down</b> (toward lower addresses). Heap grows <b>up</b>.</details>
+    <details><summary>Where does the text <code>"hello"</code> in <code>let s = "hello";</code> live?</summary>In static (read-only data). Only the pointer and length (stored in <code>s</code>) are on the stack.</details>
+    <details><summary>Why do addresses change every time I run the program?</summary>ASLR: the OS randomly shifts the regions to make attacks harder.</details>
+  </div>
+</main>
+<script src="../assets/site.js"></script>
+</body>
+</html>

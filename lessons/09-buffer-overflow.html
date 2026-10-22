@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Buffer overflow</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main>
+  <div class="kicker">Lesson 2 · Part 3</div>
+  <h1>Buffer overflow</h1>
+  <p class="lede">A buffer has 5 slots. You write 6. The 6th byte lands on whatever happens to live next door.</p>
+
+  <div class="oneline"><b>In one sentence</b>A buffer overflow is writing past the end of a buffer, which silently overwrites the neighbouring memory.</div>
+
+  <h2>The code</h2>
+<pre><code>let mut buffer = [0u8; 5];        // 5 bytes on the stack
+let not_in_buffer: u64 = 56789;   // a neighbour on the stack
+
+unsafe {
+    let ptr = buffer.as_mut_ptr();   // raw pointer to buffer[0]
+    for i in 0..WRITES {
+        *ptr.add(i) = i as u8;       // UB once i >= 5
+    }
+}
+println!("not_in_buffer: {}", not_in_buffer);</code></pre>
+  <p><code>ptr.add(i)</code> means "the address i bytes after ptr". A raw pointer has <b>no idea</b> the buffer is only 5 long, so it never stops you.</p>
+
+  <h2>The stack, byte by byte</h2>
+  <p>On my Mac the program printed these addresses:</p>
+<pre>&buffer        = 0x16dd567d8
+&amp;not_in_buffer = 0x16dd567e0</pre>
+  <p>That's 8 bytes apart. The buffer uses 5, then there are 3 bytes of <b>padding</b> (empty filler so the u64 starts at a tidy 8-byte boundary), then the 8 bytes of <code>not_in_buffer</code>. 56789 in hex is <code>0xDDD5</code>, and Macs store the smallest byte first (<b>little-endian</b>), so its bytes are <code>D5 DD 00 00 00 00 00 00</code>.</p>
+  <p><b>Pick how many bytes to write:</b></p>
+  <div id="pick" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+  <div class="bytes" id="bytes"></div>
+  <div class="note" id="result"></div>
+  <p style="font-size:14px;color:var(--muted)"><span class="tag stack">buffer</span> <span class="tag">padding</span> <span class="tag static">not_in_buffer</span> <span class="tag bad">overwritten neighbour</span></p>
+
+  <h2>Real results from my Mac</h2>
+  <div class="table-wrap"><table>
+    <tr><th>WRITES</th><th>not_in_buffer printed</th><th>Why</th></tr>
+    <tr><td>6</td><td>56789</td><td>The extra byte hit padding. Bug happened, but you can't see it.</td></tr>
+    <tr><td>9</td><td>56584</td><td>Byte 8 = 0x08 replaced the lowest byte: 0xDD<b>08</b> = 56584</td></tr>
+    <tr><td>12</td><td>185207048</td><td>Bytes 8 to 11 became 08 09 0A 0B → 0x0B0A0908</td></tr>
+  </table></div>
+  <p>The 6-write case is the important lesson: <b>the program looked correct but had UB</b>. Silent bugs are the worst kind.</p>
+
+  <h2>What if you go further? (7, 10, 64...)</h2>
+  <p>Think about what else lives on the stack near the buffer:</p>
+  <ul>
+    <li>The loop counter <code>i</code> itself may be on the stack. Overwrite it, and the loop could restart or never end.</li>
+    <li>The <b>return address</b>: where the CPU jumps when the function finishes. Overwrite it and the program jumps to garbage and crashes, or worse, jumps where an attacker wants. This is the classic "stack smashing" attack.</li>
+    <li>Results can differ between <code>cargo run</code> and <code>cargo run --release</code>, because the optimiser lays out the stack differently. That's UB again: no promises.</li>
+  </ul>
+  <div class="try"><b class="t">Try it</b>
+    <p>Open <code>lab/examples/08_buffer_overflow.rs</code>, change <code>const WRITES: usize = 6;</code> to 9, then 12, then 64, and run:</p>
+    <pre>cargo run --example 08_buffer_overflow</pre>
+  </div>
+
+  <h2>Why safe Rust can't do this</h2>
+<pre><code>let mut buffer = [0u8; 5];
+buffer[5] = 1;   // panics: index out of bounds: the len is 5 but the index is 5</code></pre>
+  <p>Every index on an array, slice or Vec is <b>bounds checked</b>. Going out of bounds stops the program with a clear <b>panic</b> instead of quietly corrupting memory. A panic is a controlled stop. UB is chaos.</p>
+
+  <div class="quiz">
+    <h2>Check yourself</h2>
+    <details><summary>Why didn't writing 6 bytes change <code>not_in_buffer</code>?</summary>Byte 5 landed in the 3 bytes of padding between the buffer and the u64. The bug still happened, it just wasn't visible.</details>
+    <details><summary>Buffer overflow is a ___ safety bug.</summary>Spatial (the "where" family): the address is outside the object.</details>
+    <details><summary>Safe Rust indexing out of bounds does what?</summary>Panics with "index out of bounds". The program stops cleanly before touching bad memory.</details>
+  </div>
+</main>
+<script src="../assets/site.js"></script>
+<script>
+const START = [0, 0, 0, 0, 0, 0, 0, 0, 0xd5, 0xdd, 0, 0, 0, 0, 0, 0];
+function show(writes) {
+  const b = START.slice();
+  for (let i = 0; i < writes && i < 16; i++) b[i] = i;
+  let html = "";
+  b.forEach((v, i) => {
+    const kind = i < 5 ? "b-buf" : i < 8 ? "b-pad" : "b-var";
+    const hit = i >= 8 && i < writes ? " b-hit" : "";
+    html += `<div class="${kind}${hit}"><small>+${i}</small>${v.toString(16).padStart(2, "0").toUpperCase()}</div>`;
+  });
+  document.getElementById("bytes").innerHTML = html;
+  let n = 0n;
+  for (let i = 15; i >= 8; i--) n = (n << 8n) | BigInt(b[i]);
+  const msg = writes <= 5 ? "All writes stayed inside the buffer. Safe." :
+    writes <= 8 ? "Out of bounds! But the extra bytes hit padding, so nothing <i>looks</i> wrong. Still UB." :
+    "Out of bounds and the neighbour is corrupted.";
+  document.getElementById("result").innerHTML = `<b>WRITES = ${writes}</b>: not_in_buffer = <b>${n}</b> (was 56789). ${msg}`;
+  document.querySelectorAll("#pick button").forEach((x) => x.classList.toggle("primary", +x.dataset.n === writes));
+}
+document.getElementById("pick").innerHTML = [5, 6, 8, 9, 10, 12].map((n) => `<button data-n="${n}">${n}</button>`).join("");
+document.querySelectorAll("#pick button").forEach((x) => (x.onclick = () => show(+x.dataset.n)));
+show(6);
+</script>
+</body>
+</html>

@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The heap: Box and Vec</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main class="wide">
+  <div class="kicker">Lesson 1 · Part 4</div>
+  <h1>The heap: Box and Vec</h1>
+  <p class="lede">The heap is a big flexible area for data that's too large, changes size, or needs to outlive the function that made it.</p>
+
+  <div class="oneline"><b>In one sentence</b>The heap holds the data, the stack holds a small pointer to it, and Rust frees the heap data when its owner goes away.</div>
+
+  <h2>Stack vs heap, in one picture</h2>
+  <p class="analogy">The stack is your desk: small, tidy, everything in order. The heap is a storage warehouse: lots of room, but you have to ask for a spot, and you keep a <b>ticket</b> (the pointer) on your desk that says where your stuff is.</p>
+  <ol class="steps">
+    <li>You ask for heap memory (e.g. <code>Box::new(5)</code>).</li>
+    <li>The <b>allocator</b> finds a free spot big enough, marks it as used, and gives back its address.</li>
+    <li>That address (the pointer) is stored on the <b>stack</b>, in your variable.</li>
+    <li>When your variable goes out of scope, Rust automatically tells the allocator "this spot is free again". This is called <b>dropping</b>.</li>
+  </ol>
+
+  <h2>Watch it: Box and vec!</h2>
+  <div id="s1"></div>
+
+  <h2>Length vs capacity</h2>
+  <p>A <code>Vec</code> on the stack is always 3 numbers (24 bytes):</p>
+  <ul>
+    <li><b>ptr</b>: where the items are on the heap</li>
+    <li><b>len</b>: how many items are in it <i>right now</i></li>
+    <li><b>capacity</b>: how many items fit before it needs a bigger spot</li>
+  </ul>
+  <p class="analogy">Capacity is like a bookshelf with 4 slots. Length is how many books are on it. Add a 5th book and you need a new, bigger shelf: buy an 8-slot shelf, move all the books, throw the old shelf away.</p>
+  <div id="s2"></div>
+
+  <h3>Real output from my Mac</h3>
+  <p>From <code>cargo run --example 03_heap_box_vec</code>. Look at when the pointer changes:</p>
+<pre>empty Vec: len=0 cap=0 ptr=0x4   (no heap allocation yet)
+push  0: len= 1 cap= 4 ptr=0x104b613c0  <- new heap buffer
+push  3: len= 4 cap= 4 ptr=0x104b613c0
+push  4: len= 5 cap= 8 ptr=0x104b612d0  <- new heap buffer, data copied
+push  8: len= 9 cap=16 ptr=0x104b612f0  <- new heap buffer, data copied
+push 16: len=17 cap=32 ptr=0x104b61eb0  <- new heap buffer, data copied
+
+with_capacity(20): pointer unchanged after 20 pushes? true</pre>
+  <p>Three things to notice:</p>
+  <ol class="steps">
+    <li>An empty Vec doesn't touch the heap at all (<code>0x4</code> is a placeholder, not real memory).</li>
+    <li>Capacity <b>doubles</b> each time: 4, 8, 16, 32. That keeps copying rare.</li>
+    <li>If you know the size up front, <code>Vec::with_capacity(n)</code> allocates once and never moves.</li>
+  </ol>
+
+  <h2>Who frees heap memory?</h2>
+  <p>Popping a stack frame does <b>not</b> magically free heap memory by itself. Instead, the compiler inserts a <b>drop</b> call at the end of every scope for each owner. Drop for a Box or Vec tells the allocator to free its heap block. No garbage collector, no manual <code>free()</code>.</p>
+
+  <h2>Heap trade-offs</h2>
+  <div class="table-wrap"><table>
+    <tr><th>Good at</th><th>Bad at</th></tr>
+    <tr><td>Data of any size, even unknown until runtime</td><td><b>Slower</b>: the allocator must search for space and keep records</td></tr>
+    <tr><td>Can grow and shrink (Vec, String)</td><td><b>Fragmentation</b>: lots of small holes can make big allocations hard</td></tr>
+    <tr><td>Can outlive the function that created it</td><td>Ownership gets more complex, especially across threads</td></tr>
+    <tr><td>Can be shared (Rc, Arc)</td><td>Scattered data is less cache friendly</td></tr>
+  </table></div>
+
+  <div class="quiz">
+    <h2>Check yourself</h2>
+    <details><summary><code>let b = Box::new(5);</code> What is on the stack and what is on the heap?</summary>Stack: the pointer <code>b</code> (8 bytes). Heap: the value 5 (4 bytes).</details>
+    <details><summary>What are the three parts of a Vec on the stack?</summary>Pointer, length, capacity.</details>
+    <details><summary>A Vec has len 4 and capacity 4. You push one more. What happens?</summary>It allocates a bigger heap block (capacity 8), copies the 4 items over, adds the new one, and frees the old block. The pointer changes.</details>
+    <details><summary>If you kept a raw pointer to the <i>old</i> block, what would it point to after the push?</summary>Freed memory. Using it would be a <b>use-after-free</b>, the first bug in Lesson 2. Safe Rust won't let you keep a reference into a Vec while pushing to it.</details>
+  </div>
+</main>
+<script src="../assets/site.js"></script>
+<script>
+stepper(document.getElementById("s1"), {
+  title: "Box and vec! on the heap",
+  cols: ["Stack", "Heap"],
+  code: `
+fn main() {
+    let boxed = Box::new(5);
+    let vector = vec![9, 8, 7];
+}`,
+  steps: [
+    { line: 1, cols: { Stack: [{ t: "main()", f: "new", r: [["boxed", "?"], ["vector", "?"]] }], Heap: [] },
+      note: "main's frame is pushed. The heap is empty." },
+    { line: 2, cols: { Stack: [{ t: "main()", r: [["boxed", "→ 0xA0", "new"], ["vector", "?"]] }], Heap: [{ t: "0xA0", f: "new", r: [["i32", "5"]] }] },
+      note: "<code>Box::new(5)</code> asks the allocator for 4 bytes. The 5 goes to the <b>heap</b> at some address (say 0xA0). The stack only stores the <b>pointer</b> to it." },
+    { line: 3, cols: { Stack: [{ t: "main()", r: [["boxed", "→ 0xA0"], ["vector.ptr", "→ 0xB0", "new"], ["vector.len", "3", "new"], ["vector.cap", "3", "new"]] }], Heap: [{ t: "0xA0", r: [["i32", "5"]] }, { t: "0xB0", f: "new", r: [["[0]", "9"], ["[1]", "8"], ["[2]", "7"]] }] },
+      note: "<code>vec![9, 8, 7]</code> puts the three numbers on the heap. On the stack, the Vec is just three numbers: <b>pointer, length, capacity</b>." },
+    { line: 4, cols: { Stack: [{ t: "main()", f: "freed", r: [["boxed", "→ 0xA0"], ["vector", "→ 0xB0"]] }], Heap: [{ t: "0xA0", f: "freed", r: [["i32", "5"]] }, { t: "0xB0", f: "freed", r: [["[0..3]", "9 8 7"]] }] },
+      note: "End of main. Rust <b>drops</b> vector and boxed (in reverse order). Dropping them frees their heap blocks. Then the frame is popped. Nothing leaks." },
+  ],
+});
+stepper(document.getElementById("s2"), {
+  title: "A Vec outgrows its capacity",
+  cols: ["Stack", "Heap"],
+  code: `
+let mut v = Vec::with_capacity(2);
+v.push(10);
+v.push(20);
+v.push(30);   // no room left!`,
+  steps: [
+    { line: 1, cols: { Stack: [{ t: "v", f: "new", r: [["ptr", "→ 0xA0"], ["len", "0"], ["cap", "2"]] }], Heap: [{ t: "0xA0 (room for 2)", f: "new", r: [["[0]", "-"], ["[1]", "-"]] }] },
+      note: "We reserve space for 2 items. The heap block exists, but it's empty: <b>len 0, capacity 2</b>." },
+    { line: 2, cols: { Stack: [{ t: "v", r: [["ptr", "→ 0xA0"], ["len", "1", "new"], ["cap", "2"]] }], Heap: [{ t: "0xA0 (room for 2)", r: [["[0]", "10", "new"], ["[1]", "-"]] }] },
+      note: "Push 10. It fits. len goes to 1." },
+    { line: 3, cols: { Stack: [{ t: "v", r: [["ptr", "→ 0xA0"], ["len", "2", "new"], ["cap", "2"]] }], Heap: [{ t: "0xA0 (room for 2)", r: [["[0]", "10"], ["[1]", "20", "new"]] }] },
+      note: "Push 20. Still fits. Now <b>len == capacity</b>. The shelf is full." },
+    { line: 4, cols: { Stack: [{ t: "v", r: [["ptr", "→ 0xC0", "new"], ["len", "3", "new"], ["cap", "4", "new"]] }], Heap: [{ t: "0xA0 (old)", f: "freed", r: [["[0]", "10"], ["[1]", "20"]] }, { t: "0xC0 (room for 4)", f: "new", r: [["[0]", "10"], ["[1]", "20"], ["[2]", "30"], ["[3]", "-"]] }] },
+      note: "Push 30 doesn't fit. Vec asks for a <b>new, bigger</b> block (capacity 4), copies 10 and 20 across, writes 30, then <b>frees the old block</b>. The pointer on the stack now points somewhere new." },
+  ],
+});
+</script>
+</body>
+</html>

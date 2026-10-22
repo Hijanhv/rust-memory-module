@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ownership and borrowing</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main class="wide">
+  <div class="kicker">Rust Book essentials · Chapter 4</div>
+  <h1>Ownership, borrowing and slices</h1>
+  <p class="lede">The single most important chapter in the Rust Book. Lesson 2 is basically "what happens when you break these rules".</p>
+
+  <div class="oneline"><b>In one sentence</b>Every value has one owner, you can lend it out with references, and when the owner leaves its scope the value is cleaned up.</div>
+
+  <div class="note">From the Rust Book: <a href="https://doc.rust-lang.org/book/ch04-01-what-is-ownership.html">4.1 What is ownership?</a>, <a href="https://doc.rust-lang.org/book/ch04-02-references-and-borrowing.html">4.2 References and borrowing</a>, <a href="https://doc.rust-lang.org/book/ch04-03-slices.html">4.3 Slices</a>. The Book itself explains ownership using the stack and the heap, which is why this module teaches memory first.</div>
+
+  <h2>The three rules</h2>
+  <ol class="steps">
+    <li>Each value in Rust has an <b>owner</b>.</li>
+    <li>There can only be <b>one owner at a time</b>.</li>
+    <li>When the owner goes <b>out of scope</b>, the value is <b>dropped</b>.</li>
+  </ol>
+  <p><b>Scope</b> = the <code>{ }</code> block where a variable is valid. It starts when you declare it and ends at the closing <code>}</code>.</p>
+<pre><code>{                         // s doesn't exist yet
+    let s = String::from("hello");   // s is valid from here
+    // use s
+}                         // scope over: Rust calls drop, the heap memory is freed</code></pre>
+
+  <h2>Move: the house key</h2>
+  <p>This is the famous diagram from the Book. Step through it:</p>
+  <div id="s1"></div>
+  <p>Why does Rust do this? If both <code>s1</code> and <code>s2</code> stayed valid, at the end of the scope <b>both would try to free the same heap memory</b>. That's a "double free", a cousin of use-after-free. Moving makes it impossible.</p>
+
+  <h2>Copy: simple values are just duplicated</h2>
+<pre><code>let x = 5;
+let y = x;          // i32 is Copy: the 4 bytes are duplicated on the stack
+println!("{x} {y}"); // both work</code></pre>
+  <p>Types that live entirely on the stack and are cheap to duplicate are <b>Copy</b>: all integers, floats, <code>bool</code>, <code>char</code>, and tuples/arrays of those. Anything that owns heap memory (String, Vec, Box) is <b>not</b> Copy. If you really want a second heap copy, ask for it: <code>let s2 = s1.clone();</code></p>
+
+  <h2>Functions move things too</h2>
+<pre><code>fn takes(s: String) { }          // s is dropped at the end of this function
+
+let s = String::from("hi");
+takes(s);                        // ownership moved into the function
+// println!("{s}");              // ERROR: value moved</code></pre>
+  <p>Passing a value to a function works exactly like <code>let s2 = s1;</code>. That would be annoying if you just wanted the function to <i>look</i> at it. So we have borrowing.</p>
+
+  <h2>Borrowing: lend it, don't give it away</h2>
+<pre><code>fn length(s: &amp;String) -> usize {  // &amp;String = a reference, a borrow
+    s.len()
+}                                 // s goes out of scope, but it doesn't own anything, so nothing is freed
+
+let s = String::from("hi");
+let n = length(&amp;s);               // lend s
+println!("{s} has {n} letters");  // s is still ours</code></pre>
+  <p>A reference is basically an <b>address</b> of the value plus a promise from the compiler that the value will still be alive while you use it.</p>
+  <p>To change something you borrowed, you need a <b>mutable reference</b>:</p>
+<pre><code>fn add_bang(s: &amp;mut String) { s.push_str("!"); }
+
+let mut s = String::from("hi");
+add_bang(&amp;mut s);</code></pre>
+
+  <h2>The borrowing rules</h2>
+  <div class="note"><p>At any moment you can have <b>either</b>:</p>
+    <ul><li>any number of <code>&amp;</code> (read-only) references, <b>or</b></li><li>exactly one <code>&amp;mut</code> (read-write) reference.</li></ul>
+    <p>And every reference must always point at a value that's still alive.</p></div>
+<pre><code>let mut s = String::from("hi");
+let r1 = &amp;mut s;
+let r2 = &amp;mut s;        // ERROR: cannot borrow `s` as mutable more than once
+println!("{r1} {r2}");</code></pre>
+  <p>The Book says this rule exists to prevent <b>data races</b> at compile time. That's the exact bug in Part 2.4. Many readers or one writer, never both.</p>
+
+  <h2>Dangling references</h2>
+<pre><code>fn dangle() -> &amp;String {
+    let s = String::from("hi");
+    &amp;s                  // ERROR: s is dropped when dangle ends
+}</code></pre>
+  <p>A <b>dangling reference</b> points at memory that has been freed. In C this compiles and becomes a use-after-free. In Rust it's a compile error. (The fix: return the <code>String</code> itself, moving ownership out.)</p>
+
+  <h2>Slices: a view into part of something</h2>
+<pre><code>let s = String::from("hello world");
+let hello: &amp;str = &amp;s[0..5];     // a slice: points into s, length 5
+let world: &amp;str = &amp;s[6..11];
+
+let a = [1, 2, 3, 4, 5];
+let mid: &amp;[i32] = &amp;a[1..3];     // [2, 3]</code></pre>
+  <p>A slice is a reference to a <b>run of items</b>. It stores two things: where it starts and how long it is. That's a <b>fat pointer</b>, 16 bytes. And a string literal like <code>"hi"</code> has type <code>&amp;str</code>: it's a slice pointing into the program's static memory. You'll see this in Part 1.5.</p>
+
+  <div class="quiz">
+    <h2>Check yourself</h2>
+    <details><summary><code>let a = vec![1]; let b = a;</code> Can you use <code>a</code>?</summary>No. The Vec moved to b. Only one owner, so only one variable will free the heap memory.</details>
+    <details><summary>Why can you still use <code>x</code> after <code>let y = x;</code> when x is an i32?</summary>i32 is Copy. The 4 bytes are simply duplicated. No heap memory, so no double free risk.</details>
+    <details><summary>Can you have two <code>&amp;mut</code> to the same value at the same time?</summary>No. One <code>&amp;mut</code> OR many <code>&amp;</code>. This rule prevents data races.</details>
+    <details><summary>What's a dangling reference?</summary>A reference to memory that has already been freed. Rust's compiler refuses to create one.</details>
+    <details><summary>What two things does a <code>&amp;str</code> store?</summary>A pointer to the first byte and a length.</details>
+  </div>
+</main>
+<script src="../assets/site.js"></script>
+<script>
+stepper(document.getElementById("s1"), {
+  title: "Moving a String",
+  cols: ["Stack", "Heap"],
+  code: `
+let s1 = String::from("hello");
+let s2 = s1;
+// println!("{s1}");  // ERROR
+println!("{s2}");`,
+  steps: [
+    { line: 1, cols: { Stack: [{ t: "s1: String", f: "new", r: [["ptr", "→ 0xA0"], ["len", "5"], ["cap", "5"]] }], Heap: [{ t: "0xA0", f: "new", r: [["bytes", "h e l l o"]] }] },
+      note: "A String is 3 numbers on the stack (pointer, length, capacity) pointing at the letters on the heap. <b>s1 owns</b> that heap memory." },
+    { line: 2, cols: { Stack: [{ t: "s1: String", f: "freed", r: [["ptr", "→ 0xA0"], ["len", "5"], ["cap", "5"]] }, { t: "s2: String", f: "new", r: [["ptr", "→ 0xA0"], ["len", "5"], ["cap", "5"]] }], Heap: [{ t: "0xA0", r: [["bytes", "h e l l o"]] }] },
+      note: "<code>let s2 = s1;</code> copies the <b>3 stack numbers</b> only. The heap letters are NOT copied. Now Rust marks <b>s1 as invalid</b>. Ownership has <b>moved</b> to s2." },
+    { line: 3, cols: { Stack: [{ t: "s1", f: "bad", r: [["(moved)", "✗"]] }, { t: "s2: String", r: [["ptr", "→ 0xA0"], ["len", "5"], ["cap", "5"]] }], Heap: [{ t: "0xA0", r: [["bytes", "h e l l o"]] }] },
+      note: "Trying to use s1 is a <b>compile error</b> (E0382: borrow of moved value). The compiler stops you before the program even runs." },
+    { line: 4, cols: { Stack: [{ t: "s2: String", f: "freed", r: [["ptr", "→ 0xA0"]] }], Heap: [{ t: "0xA0", f: "freed", r: [["bytes", "h e l l o"]] }] },
+      note: "At the end of the scope only <b>s2</b> is dropped, so the heap memory is freed <b>exactly once</b>. No double free, no use-after-free." },
+  ],
+});
+</script>
+</body>
+</html>
