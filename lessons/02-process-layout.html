@@ -41,6 +41,7 @@
   <h2>Two honest footnotes</h2>
   <div class="note">
     <p><b>ASLR.</b> The OS shifts every region by a random amount each time you run (Address Space Layout Randomisation). That makes attacks harder. So the exact addresses change between runs, but the <b>order</b> of regions stays the same.</p>
+    <p><b>The order of the bottom parts depends on the system.</b> On macOS the code comes first, then read-only data, as drawn. On Linux, read-only data (like string literals) is usually placed <i>below</i> the code. On both, everything read-only sits below the writable statics, and the heap and stack come after. memscope's tests caught this difference.</p>
     <p><b>It's a simplified picture.</b> Real systems also map big heap allocations and shared libraries in other places. The map above is the right mental model for this course.</p>
   </div>
 

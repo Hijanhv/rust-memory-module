@@ -76,8 +76,10 @@ mod tests {
         let ro = addr(&list, "rodata");
         let data = addr(&list, "data");
         let heap = addr(&list, "heap");
-        assert!(text < ro, "code sits below read-only data");
-        assert!(ro < data, "read-only data sits below writable data");
+        // macOS puts code first, then read-only data. Linux linkers often put
+        // read-only data BEFORE the code. Both keep everything read-only below
+        // the writable data, which is what we check.
+        assert!(text.max(ro) < data, "read-only parts sit below writable data");
         assert!(data < heap, "statics sit below the heap");
         // No stack check here: tests run on spawned threads, and a spawned thread's
         // stack is mapped wherever the OS finds room, often BELOW the heap.
