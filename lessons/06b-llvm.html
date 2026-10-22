@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rustc and LLVM</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<main>
+  <div class="kicker">Lesson 1 · Part 7</div>
+  <h1>From code to machine: rustc and LLVM</h1>
+  <p class="lede">Who actually writes the machine code that lives in your program's text segment? Mostly a tool called LLVM.</p>
+
+  <div class="oneline"><b>In one sentence</b>rustc checks your Rust code and translates it into LLVM's simple language, then LLVM optimises it and turns it into machine instructions for your CPU.</div>
+
+  <div class="note warn"><b>LLVM is not LLM.</b> An <b>LLM</b> (Large Language Model) is AI like ChatGPT or Claude, and it has nothing to do with how Rust works. <b>LLVM</b> is a compiler toolkit. The name once stood for "Low Level Virtual Machine", but today it's just a name.</div>
+
+  <h2>A compiler in two halves</h2>
+  <p>When you run <code>cargo build</code>, your code passes through two big programs:</p>
+<pre>  your .rs file
+       │
+       ▼
+┌──────────────────────────────┐
+│ rustc  (the "front end")     │  Rust-specific. Reads your code, checks types,
+│                              │  checks ownership and borrowing (Lesson 3!),
+│                              │  and refuses to continue if a rule is broken.
+└──────────────────────────────┘
+       │   LLVM IR: a simple, universal "middle language"
+       ▼
+┌──────────────────────────────┐
+│ LLVM   (the "back end")      │  Shared by many languages: C, C++, Swift, Zig...
+│                              │  Optimises the code, then writes real machine
+│                              │  instructions for your exact CPU.
+└──────────────────────────────┘
+       │
+       ▼
+  machine code → goes into the TEXT segment of your program (Part 1.2)</pre>
+  <p class="analogy">Analogy: rustc is a strict editor who checks your essay follows every rule, then rewrites it in plain simple English. LLVM is a translator who takes that plain English and translates it into any language you need: Apple chip, Intel chip, or even Solana's virtual machine.</p>
+
+  <h2>Why split it in two?</h2>
+  <ol class="steps">
+    <li>Writing a good optimiser and machine-code generator for every CPU is <b>huge</b> work. LLVM has already done it, and is used by C++, Swift and others.</li>
+    <li>So Rust's team only builds the Rust-specific part (rustc), and gets world-class speed on every CPU for free.</li>
+    <li>That's why Rust can run on Macs, Linux servers, phones, tiny chips and blockchains.</li>
+  </ol>
+
+  <h2>See it for real: one function, three forms</h2>
+  <p>Take <code>foo</code> from Part 1.3:</p>
+<pre><code>pub fn foo(input: i32) -> i32 {
+    let y = input + 2;
+    y * 3
+}</code></pre>
+
+  <h3>1. LLVM IR in debug mode (what rustc hands to LLVM)</h3>
+<pre>define i32 @foo(i32 %input) {
+  %y = add i32 %input, 2      ; y = input + 2
+  %_0 = mul i32 %y, 3         ; result = y * 3
+  ret i32 %_0                 ; return it
+}</pre>
+  <p>It reads almost like your Rust, just one tiny step per line. <code>i32</code> is still the same 4-byte type.</p>
+
+  <h3>2. LLVM IR in release mode (after LLVM optimised it)</h3>
+<pre>define noundef i32 @foo(i32 noundef %input) {
+  %0 = mul i32 %input, 3      ; input * 3
+  %_0 = add i32 %0, 6         ; + 6
+  ret i32 %_0
+}</pre>
+  <p>LLVM did some algebra: <code>(input + 2) × 3</code> = <code>input × 3 + 6</code>. Same answer, faster for the CPU. It also added <code>noundef</code>, a note to itself that says "I may assume this value is never garbage". Remember that: LLVM's <b>assumptions</b> are why undefined behaviour is so dangerous (below).</p>
+
+  <h3>3. The machine code on my Mac (Apple M-series, ARM)</h3>
+<pre>_foo:
+    add  w8, w0, w0, lsl #1   ; w8 = input + input*2  (= input * 3)
+    add  w0, w8, #6           ; w0 = w8 + 6
+    ret                       ; return w0</pre>
+  <p>Three CPU instructions. <code>w0</code> and <code>w8</code> are <b>registers</b>: tiny, super-fast storage slots inside the CPU itself. Notice: there's no stack frame here at all! The optimiser saw that <code>y</code> didn't need to live in memory and kept everything in registers. So the stack diagrams in Part 1.3 show the <b>debug</b> picture. In release, the compiler is allowed to skip memory whenever it can.</p>
+
+  <h2>Debug vs release</h2>
+  <div class="table-wrap"><table>
+    <tr><th></th><th><code>cargo run</code> (debug)</th><th><code>cargo run --release</code></th></tr>
+    <tr><td>LLVM optimisation</td><td>Off (level 0)</td><td>On (level 3)</td></tr>
+    <tr><td>Compiles</td><td>Fast</td><td>Slower</td></tr>
+    <tr><td>Program runs</td><td>Slower</td><td>Much faster</td></tr>
+    <tr><td>Variables</td><td>Each one gets a real stack slot</td><td>Many live only in registers, or vanish</td></tr>
+  </table></div>
+
+  <h2>Why LLVM matters for Lesson 2</h2>
+  <p>The optimiser is only allowed to rewrite your code because it <b>assumes your program has no undefined behaviour</b>. It never checks. It just trusts. So when UB does happen, the optimiser may have already rewritten the code in ways that only made sense if the bug wasn't there.</p>
+  <p>The memscope project caught exactly this. The use-after-free demo read <b>1234</b> in debug mode, but <b>1</b> in release mode, with <b>zero</b> heap allocations, because LLVM deleted the Boxes entirely. Same source code, different program. That's what "UB means anything can happen" looks like in real life.</p>
+
+  <h2>Why it matters for Solana</h2>
+  <p>Solana programs are written in Rust, but they don't run on an Apple or Intel chip. They run on Solana's own virtual machine, which uses a format called <b>SBF</b> (Solana Bytecode Format, based on eBPF). Because the back end is LLVM, Solana only had to teach LLVM to output SBF instead of ARM or x86. rustc stays the same. That's the <code>sbpf-solana</code> toolchain already installed on your Mac.</p>
+
+  <div class="try"><b class="t">Try it (no install needed)</b>
+    <p>Save the <code>foo</code> function in a file <code>foo.rs</code> (add <code>#[no_mangle]</code> above it so the name stays readable), then:</p>
+<pre>rustc --crate-type=lib -O --emit=llvm-ir foo.rs   # creates foo.ll (LLVM IR)
+rustc --crate-type=lib -O --emit=asm foo.rs       # creates foo.s  (machine code)
+rustc -vV                                         # shows your LLVM version</pre>
+    <p>Mine says <code>LLVM version: 22.1.2</code>.</p>
+  </div>
+
+  <div class="quiz">
+    <h2>Check yourself</h2>
+    <details><summary>Which part checks ownership and borrowing: rustc or LLVM?</summary><b>rustc</b>. LLVM knows nothing about Rust's rules. By the time code reaches LLVM, it has already passed every safety check.</details>
+    <details><summary>What is LLVM IR?</summary>A simple "middle language" between Rust and machine code. rustc writes it, LLVM reads it, optimises it and turns it into CPU instructions.</details>
+    <details><summary>Is LLVM the same as an LLM?</summary>No. LLVM is a compiler toolkit. An LLM is an AI language model. Unrelated.</details>
+    <details><summary>In release mode, <code>foo</code> had no stack frame. Why?</summary>The optimiser kept everything in CPU registers because nothing needed to live in memory. The compiler may skip memory whenever the result is the same.</details>
+    <details><summary>Why can UB give different results in debug and release?</summary>The optimiser rewrites code assuming there's no UB. In release it optimises a lot, so a broken assumption has bigger, stranger effects.</details>
+    <details><summary>How can Rust run on Solana's virtual machine?</summary>LLVM has a back end that outputs SBF bytecode. rustc's checks are the same, only the final translation changes.</details>
+  </div>
+</main>
+<script src="../assets/site.js"></script>
+</body>
+</html>

@@ -8,7 +8,7 @@ Live site: https://rust-memory-module.vercel.app
 
 - `index.html` and `lessons/`: the site. Plain HTML, CSS and JS, no build step.
   - **0.1 to 0.5 Rust Book essentials**: the Rust Book chapters these lessons depend on (ch. 3, 4, 8, 15, 16, 20.1), explained simply.
-  - **1.1 to 1.6 Lesson 1: Memory**, with click-through stack/heap/static diagrams.
+  - **1.1 to 1.7 Lesson 1: Memory** (1.7 = rustc and LLVM), with click-through stack/heap/static diagrams.
   - **2.1 to 2.4 Lesson 2: Memory bugs**, including an interactive byte-level buffer overflow.
   - **Mastery test**: a "where does it live?" game and a scored quiz.
 - `lab/`: runnable Rust examples, one per lesson.

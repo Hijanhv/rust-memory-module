@@ -12,6 +12,7 @@ const LESSONS = [
   { id: "04-heap", num: "1.4", title: "The heap: Box and Vec", blurb: "Pointers, length, capacity, and what happens when a Vec grows.", mins: 20, group: "Lesson 1: Memory" },
   { id: "05-static", num: "1.5", title: "Static memory and strings", blurb: "Statics, string literals, and &str vs String.", mins: 15, group: "Lesson 1: Memory" },
   { id: "06-on-your-machine", num: "1.6", title: "See it on your own machine", blurb: "Extra practice, no new theory: run the code and see real addresses, sizes and a stack overflow.", mins: 20, group: "Lesson 1: Memory" },
+  { id: "06b-llvm", num: "1.7", title: "From code to machine: rustc and LLVM", blurb: "Who writes your machine code, why release mode changes UB, and LLVM vs LLM.", mins: 15, group: "Lesson 1: Memory" },
   { id: "07-memory-bugs", num: "2.1", title: "What a memory bug really is", blurb: "Undefined behaviour, spatial vs temporal safety, the formal definitions.", mins: 15, group: "Lesson 2: Memory bugs" },
   { id: "08-use-after-free", num: "2.2", title: "Use-after-free", blurb: "Free memory, keep the pointer, read someone else's data.", mins: 15, group: "Lesson 2: Memory bugs" },
   { id: "09-buffer-overflow", num: "2.3", title: "Buffer overflow", blurb: "Write one byte too far and watch a neighbour change.", mins: 15, group: "Lesson 2: Memory bugs" },

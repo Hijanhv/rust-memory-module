@@ -55,6 +55,8 @@ const QS = [
   ["Which is NOT one of the four data race conditions?", ["Two threads at the same time", "Same memory", "At least one write", "One thread must crash"], 3, "The four are: concurrent threads, same memory, at least one write, no synchronisation."],
   ["Why can <code>COUNTER += 1</code> lose updates across threads?", ["It's really read, add, write, and another thread can sneak in between", "usize is too small", "Threads can't read statics", "println! is slow"], 0, "Two threads read 5, both write 6. Two increments, one counted."],
   ["Which of these fixes the counter in SAFE Rust?", ["Making it static mut", "AtomicUsize::fetch_add or Arc&lt;Mutex&gt;", "Adding thread::sleep", "Running fewer threads"], 1, "Atomics make the step indivisible. A Mutex lets one thread in at a time."],
+  ["Which part of the compiler checks ownership and borrowing?", ["LLVM", "rustc", "The linker", "The OS"], 1, "rustc is the Rust-specific front end. LLVM only sees code that already passed every check."],
+  ["Why can a UB program behave differently in debug and release?", ["Release uses a different language", "LLVM's optimiser assumes there is no UB and rewrites code based on that", "Debug mode fixes bugs", "It can't"], 1, "memscope's use-after-free read 1234 in debug and 1 in release."],
   ["Does <code>unsafe</code> turn off the borrow checker?", ["Yes, completely", "No, it only unlocks five extra powers like raw pointer deref and static mut", "Only for threads", "Only in debug builds"], 1, "Everything else is still checked."],
 ];
 
