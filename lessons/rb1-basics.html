@@ -10,7 +10,7 @@
 <main>
   <div class="kicker">Rust Book essentials · Chapter 3</div>
   <h1>Variables, types, functions and loops</h1>
-  <p class="lede">The everyday building blocks. Every example in Lessons 1 and 2 is made of these.</p>
+  <p class="lede">The everyday building blocks. Every example in Lectures 1 and 2 is made of these.</p>
 
   <div class="oneline"><b>In one sentence</b>Every Rust value has a type, and the type tells you exactly how many bytes it takes in memory.</div>
 
@@ -39,7 +39,7 @@ let z = z + 1;     // "shadowing": a brand new variable that reuses the name. z 
     <tr><td><code>char</code></td><td>One Unicode character like <code>'a'</code> or <code>'😀'</code></td><td>4</td></tr>
   </table></div>
   <p>If you don't write a type, Rust guesses. A whole number defaults to <code>i32</code>. That's why <code>let x = 5;</code> takes 4 bytes.</p>
-  <p>A <code>u8</code> holds 0 to 255. That's why bytes are often written as two hex digits: <code>0x00</code> to <code>0xFF</code>. You'll read hex a lot in Lesson 2.</p>
+  <p>A <code>u8</code> holds 0 to 255. That's why bytes are often written as two hex digits: <code>0x00</code> to <code>0xFF</code>. You'll read hex a lot in Lecture 2.</p>
 
   <h3>Groups of values</h3>
 <pre><code>let tup: (i32, f64, u8) = (500, 6.4, 1);   // tuple: fixed group, mixed types
@@ -50,7 +50,7 @@ let arr: [u8; 5] = [0, 0, 0, 0, 0];        // array: fixed length, one type
 let same = [0u8; 5];                       // shortcut: five zeros of type u8
 let one = arr[0];                          // indexing starts at 0</code></pre>
   <p><code>[u8; 5]</code> means "5 values of type u8". Its size is 5 × 1 = 5 bytes, known when compiling, so it lives on the <b>stack</b>. This is exactly the buffer in the buffer overflow lesson.</p>
-  <div class="note warn"><b>Arrays are bounds checked.</b> <code>arr[10]</code> on a 5-item array doesn't read random memory, it <b>panics</b> (stops the program with an error message). The Book calls this "Rust's memory safety principles in action". Lesson 2 shows what happens when you skip the check with unsafe.</div>
+  <div class="note warn"><b>Arrays are bounds checked.</b> <code>arr[10]</code> on a 5-item array doesn't read random memory, it <b>panics</b> (stops the program with an error message). The Book calls this "Rust's memory safety principles in action". Lecture 2 shows what happens when you skip the check with unsafe.</div>
 
   <h2>3. Functions</h2>
 <pre><code>fn main() {

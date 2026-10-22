@@ -8,7 +8,7 @@
 </head>
 <body>
 <main>
-  <div class="kicker">Lesson 1 · Part 7</div>
+  <div class="kicker">Lecture 1 · Part 7</div>
   <h1>From code to machine: rustc and LLVM</h1>
   <p class="lede">Who actually writes the machine code that lives in your program's text segment? Mostly a tool called LLVM.</p>
 
@@ -23,7 +23,7 @@
        ▼
 ┌──────────────────────────────┐
 │ rustc  (the "front end")     │  Rust-specific. Reads your code, checks types,
-│                              │  checks ownership and borrowing (Lesson 3!),
+│                              │  checks ownership and borrowing (Lecture 3!),
 │                              │  and refuses to continue if a rule is broken.
 └──────────────────────────────┘
        │   LLVM IR: a simple, universal "middle language"
@@ -84,7 +84,7 @@
     <tr><td>Variables</td><td>Each one gets a real stack slot</td><td>Many live only in registers, or vanish</td></tr>
   </table></div>
 
-  <h2>Why LLVM matters for Lesson 2</h2>
+  <h2>Why LLVM matters for Lecture 2</h2>
   <p>The optimiser is only allowed to rewrite your code because it <b>assumes your program has no undefined behaviour</b>. It never checks. It just trusts. So when UB does happen, the optimiser may have already rewritten the code in ways that only made sense if the bug wasn't there.</p>
   <p>The memscope project caught exactly this. The use-after-free demo read <b>1234</b> in debug mode, but <b>1</b> in release mode, with <b>zero</b> heap allocations, because LLVM deleted the Boxes entirely. Same source code, different program. That's what "UB means anything can happen" looks like in real life.</p>
 

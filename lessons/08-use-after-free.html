@@ -8,7 +8,7 @@
 </head>
 <body>
 <main class="wide">
-  <div class="kicker">Lesson 2 · Part 2</div>
+  <div class="kicker">Lecture 2 · Part 2</div>
   <h1>Use-after-free</h1>
   <p class="lede">The heap gives a spot back to the allocator. You still have its address. You read it anyway.</p>
 
@@ -32,7 +32,7 @@ value after free: 1234</pre>
   <p>Same address. The old pointer, which "should" hold 5, now reads <b>1234</b>, a completely different value that belongs to <code>y</code>. No crash, no error message. In a real program that 1234 could be a password, or the old pointer could be used to <b>write</b> and corrupt <code>y</code>. That's how many real security holes work.</p>
 
   <h2>Could it crash instead?</h2>
-  <p>The lesson asked you this. Connect it to Lesson 1:</p>
+  <p>The lesson asked you this. Connect it to Lecture 1:</p>
   <ul>
     <li>Small freed blocks usually stay inside the allocator's pool. The <b>page</b> is still mapped to your process, so reading it is "allowed" by the MMU. No crash, just wrong data.</li>
     <li>But if the allocator gives the whole page back to the OS (common for big allocations), the page is <b>unmapped</b>. Now the read hits a page you don't own, and you get a <b>segfault</b>.</li>

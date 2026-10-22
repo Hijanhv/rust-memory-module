@@ -8,7 +8,7 @@
 </head>
 <body>
 <main>
-  <div class="kicker">Lesson 1 · Part 6 · Extra practice</div>
+  <div class="kicker">Lecture 1 · Part 6 · Extra practice</div>
   <h1>See it on your own machine</h1>
   <p class="lede">Diagrams are nice. Real addresses are better. Let's print where things actually live.</p>
 
@@ -62,6 +62,22 @@ Option&lt;Box&lt;i32&gt;&gt;  8 bytes (null is never a valid Box, so None is fre
 thread '&lt;unknown&gt;' has overflowed its stack
 fatal runtime error: stack overflow, aborting</pre>
   <p>A thread Rust spawns gets a <b>2 MB</b> stack. We tried to put a <b>4 MB</b> array on it. Boom. The same 4 MB in a <code>vec!</code> (heap) was totally fine. That's the stack size limit from Part 1.3, and it happened while the computer had gigabytes of free RAM.</p>
+
+  <h2>Extra reading from the lecture</h2>
+  <p>These are the resources listed in Lecture 1. Read them after you finish the site, they'll make much more sense then.</p>
+  <ul>
+    <li><b>Memory Management Unit (MMU)</b>, GeeksforGeeks. Search the title on geeksforgeeks.org. Goes with Part 1.1.</li>
+    <li><a href="https://cheats.rs/">Rust Language Cheat Sheet</a>. See its "Memory and Lifetimes" and "Data Layout" sections.</li>
+    <li><b>Rust Memory Layout and Types</b>, by amindWalker. Diagrams of how each type is laid out.</li>
+    <li><a href="https://www.youtube.com/watch?v=rDoqT-a6UFg">Visualizing memory layout of Rust's data types</a> (video). Read the description/first comment for corrections.</li>
+    <li><a href="https://doc.rust-lang.org/std/ptr/trait.Pointee.html">Pointer metadata docs</a>: the "extra info" inside fat pointers.</li>
+    <li><a href="https://doc.rust-lang.org/std/primitive.pointer.html">Primitive type: pointer</a> (raw pointers, used in Lecture 2).</li>
+    <li><a href="https://doc.rust-lang.org/std/primitive.reference.html">Primitive type: reference</a> (<code>&amp;</code> and <code>&amp;mut</code>).</li>
+    <li><a href="https://doc.rust-lang.org/reference/memory-model.html">The Rust Reference: Memory model</a>.</li>
+    <li><a href="https://doc.rust-lang.org/reference/items/static-items.html">The Rust Reference: Static items</a>. Goes with Part 1.5.</li>
+    <li><b>Programming Rust, 2nd Edition</b> (Blandy, Orendorff, Tindall, O'Reilly 2021), "Statics and Constants", page 187.</li>
+    <li><b>Statics example with commands to inspect the binary</b>: covered in Part 1.5, "Inspect the binary yourself".</li>
+  </ul>
 
   <div class="quiz">
     <h2>Check yourself</h2>

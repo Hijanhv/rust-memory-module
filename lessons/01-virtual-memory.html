@@ -8,7 +8,7 @@
 </head>
 <body>
 <main>
-  <div class="kicker">Lesson 1 · Part 1</div>
+  <div class="kicker">Lecture 1 · Part 1</div>
   <h1>Virtual memory and pages</h1>
   <p class="lede">Your program never sees real RAM. It sees a pretend, private copy of memory, and the operating system quietly translates.</p>
 
@@ -54,7 +54,14 @@ Physical (real RAM):               frame 12  frame 3  frame 98  frame 25</pre>
     <li><b>Page is yours but was moved to disk</b> (RAM was full). The MMU raises a <b>page fault</b>, the OS loads it back from the SSD, and your program continues. It never notices, it's just slower.</li>
     <li><b>Page isn't yours, or the permission is wrong.</b> The OS kills the program: segfault.</li>
   </ol>
-  <p>Case 2 is how a program can use more memory than you have RAM. Case 3 matters a lot in Lesson 2: some memory bugs crash (case 3) and some don't (the bad address happened to be on a page you own).</p>
+  <p>Case 2 is how a program can use more memory than you have RAM. Case 3 matters a lot in Lecture 2: some memory bugs crash (case 3) and some don't (the bad address happened to be on a page you own).</p>
+
+  <h2>Does any of this affect speed?</h2>
+  <ul>
+    <li><b>Touching lots of pages can be slower.</b> The CPU keeps a small cache of recent translations (the TLB). Data spread over many pages means more lookups. In everyday programs the OS and MMU handle this so well that you rarely notice.</li>
+    <li><b>Page faults to disk are slow.</b> Loading a page back from the SSD takes far longer than reading RAM.</li>
+    <li><b>Small devices are different.</b> On embedded chips and other low-memory systems (and on blockchains like Solana, where a program gets a tiny fixed stack and heap), you have to think about every byte. That's where this module pays off most.</li>
+  </ul>
 
   <div class="try"><b class="t">Try it (no install needed)</b>
     <p>Open the Terminal on your Mac and type:</p>

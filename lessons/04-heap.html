@@ -8,7 +8,7 @@
 </head>
 <body>
 <main class="wide">
-  <div class="kicker">Lesson 1 · Part 4</div>
+  <div class="kicker">Lecture 1 · Part 4</div>
   <h1>The heap: Box and Vec</h1>
   <p class="lede">The heap is a big flexible area for data that's too large, changes size, or needs to outlive the function that made it.</p>
 
@@ -70,7 +70,7 @@ with_capacity(20): pointer unchanged after 20 pushes? true</pre>
     <details><summary><code>let b = Box::new(5);</code> What is on the stack and what is on the heap?</summary>Stack: the pointer <code>b</code> (8 bytes). Heap: the value 5 (4 bytes).</details>
     <details><summary>What are the three parts of a Vec on the stack?</summary>Pointer, length, capacity.</details>
     <details><summary>A Vec has len 4 and capacity 4. You push one more. What happens?</summary>It allocates a bigger heap block (capacity 8), copies the 4 items over, adds the new one, and frees the old block. The pointer changes.</details>
-    <details><summary>If you kept a raw pointer to the <i>old</i> block, what would it point to after the push?</summary>Freed memory. Using it would be a <b>use-after-free</b>, the first bug in Lesson 2. Safe Rust won't let you keep a reference into a Vec while pushing to it.</details>
+    <details><summary>If you kept a raw pointer to the <i>old</i> block, what would it point to after the push?</summary>Freed memory. Using it would be a <b>use-after-free</b>, the first bug in Lecture 2. Safe Rust won't let you keep a reference into a Vec while pushing to it.</details>
   </div>
 </main>
 <script src="../assets/site.js"></script>

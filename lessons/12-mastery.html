@@ -9,7 +9,7 @@
 <body>
 <main>
   <div class="kicker">Prove it</div>
-  <h1>Mastery test: Lessons 1 and 2</h1>
+  <h1>Mastery test: Lectures 1 and 2</h1>
   <p class="lede">No peeking at old pages. If you get 90% or more here, you really understand this module.</p>
 
   <h2>Game 1: Where does it live?</h2>
@@ -66,7 +66,7 @@ function upd() {
   const pct = answered ? Math.round((score / answered) * 100) : 0;
   let msg = `Score: ${score} / ${answered} answered (of ${total})`;
   if (answered === total) {
-    msg = score / total >= 0.9 ? `${score} / ${total}. You're a Lesson 1 + 2 maxi. 🎉` : `${score} / ${total} (${pct}%). Re-read the pages for the ones you missed, then try again.`;
+    msg = score / total >= 0.9 ? `${score} / ${total}. You're a Lecture 1 + 2 maxi. 🎉` : `${score} / ${total} (${pct}%). Re-read the pages for the ones you missed, then try again.`;
     try { localStorage.setItem("rmm-best", String(Math.max(score, +(localStorage.getItem("rmm-best") || 0)))); } catch {}
   }
   document.getElementById("score").textContent = msg;

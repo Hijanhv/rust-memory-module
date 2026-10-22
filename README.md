@@ -1,6 +1,9 @@
-# Rust Memory, Step by Step
+# Rust Theory and Fundamentals (Module 1)
 
-A beginner-friendly learning site for Module 1 (Memory) of my Rust course: Lesson 1 (virtual memory, process layout, stack, heap, static) and Lesson 2 (memory bugs in unsafe Rust: use-after-free, buffer overflow, data race).
+A beginner-friendly learning site for Module 1, **Rust Theory and Fundamentals**, of my Rust course:
+
+- **Lecture 1: Memory, Static, Stack, Heap, and More** (virtual memory, pages, process layout, stack, heap, static, rustc and LLVM)
+- **Lecture 2: Memory Errors and Unsafe Rust** (use-after-free, buffer overflow, data race, undefined behaviour)
 
 Live site: https://rust-memory-module.vercel.app
 
@@ -8,11 +11,11 @@ Live site: https://rust-memory-module.vercel.app
 
 - `index.html` and `lessons/`: the site. Plain HTML, CSS and JS, no build step.
   - **0.1 to 0.5 Rust Book essentials**: the Rust Book chapters these lessons depend on (ch. 3, 4, 8, 15, 16, 20.1), explained simply.
-  - **1.1 to 1.7 Lesson 1: Memory** (1.7 = rustc and LLVM), with click-through stack/heap/static diagrams.
-  - **2.1 to 2.4 Lesson 2: Memory bugs**, including an interactive byte-level buffer overflow.
+  - **1.1 to 1.7 Lecture 1: Memory, Static, Stack, Heap, and More** (1.7 = rustc and LLVM), with click-through stack/heap/static diagrams.
+  - **2.1 to 2.4 Lecture 2: Memory Errors and Unsafe Rust**, including an interactive byte-level buffer overflow.
   - **Mastery test**: a "where does it live?" game and a scored quiz.
 - `lab/`: runnable Rust examples, one per lesson.
-- `project/`: **memscope**, the Module 1 project. A dependency-free CLI that shows every Lesson 1 and 2 idea inside a real process. See [project/README.md](project/README.md).
+- `project/`: **memscope**, the Module 1 project. A dependency-free CLI that shows every Lecture 1 and 2 idea inside a real process. See [project/README.md](project/README.md).
 
 ## Run the lab
 

@@ -1,6 +1,6 @@
 # memscope
 
-The Module 1 project. A small command-line tool, with no dependencies, that shows Lesson 1 (memory) and Lesson 2 (memory bugs) happening inside a real Rust process.
+The Module 1 project. A small command-line tool, with no dependencies, that shows Lecture 1 (memory) and Lecture 2 (memory bugs) happening inside a real Rust process.
 
 ```sh
 cd project

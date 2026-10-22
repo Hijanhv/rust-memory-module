@@ -8,7 +8,7 @@
 </head>
 <body>
 <main class="wide">
-  <div class="kicker">Lesson 1 · Part 5</div>
+  <div class="kicker">Lecture 1 · Part 5</div>
   <h1>Static memory and strings</h1>
   <p class="lede">Some data is baked into your program file and exists from the first instruction to the last.</p>
 
@@ -48,7 +48,7 @@
     let n: i32 = 55;
     static NUMBER: i32 = n;                  // ERROR: n is a runtime stack value
 }</code></pre>
-  <p>And changing a static needs <code>static mut</code> plus <code>unsafe</code>, because any thread could touch it at any time. That's exactly the data race in Lesson 2.</p>
+  <p>And changing a static needs <code>static mut</code> plus <code>unsafe</code>, because any thread could touch it at any time. That's exactly the data race in Lecture 2.</p>
 
   <div class="note"><b>static vs const.</b> A <code>const</code> is copied into every place you use it (no single address). A <code>static</code> has exactly <b>one</b> fixed address in memory. Use const for plain constants, static when you need one shared location.</div>
 
@@ -65,11 +65,33 @@
     <p>Two identical literals print the <b>same</b> address (stored once). The <code>String</code> copy prints a different, heap address.</p>
   </div>
 
+  <h2>Inspect the binary yourself</h2>
+  <p>The lecture mentions looking inside the compiled program file to find where statics went. Your Mac already has the tools for this. Build the lab first (<code>cd lab && cargo build --examples</code>), then:</p>
+<pre>size -m target/debug/examples/04_static_strings</pre>
+  <p>This lists the <b>sections</b> of the file. The important ones on my Mac:</p>
+<pre>Section __text:    219156        &lt;- your compiled code (text segment)
+Section __cstring:   6227        &lt;- string literals
+Section __const:     7192        &lt;- read-only statics
+Section __data:      2496        &lt;- writable statics with a value
+Section __bss:        136 (zerofill)  &lt;- statics that start at zero (no bytes stored!)</pre>
+  <p>Notice <code>__bss</code> says <b>zerofill</b>: the file doesn't store those zeros at all, the OS creates zeroed pages at start-up. That's the BSS idea from Part 1.2. Now find our two statics by name:</p>
+<pre>nm -m target/debug/examples/04_static_strings | grep GREETING</pre>
+<pre>00000001000480c0 (__DATA_CONST,__const) non-external __ZN18_04_static_strings14GREETING_OUTER17h261fd703d6e66ddeE
+00000001000480d0 (__DATA_CONST,__const) non-external __ZN18_04_static_strings5hello14GREETING_INNER17hb9b47180dca2aa29E</pre>
+  <ul>
+    <li>Both statics have a <b>fixed address</b> decided when the program was built, just 16 bytes apart.</li>
+    <li><code>GREETING_INNER</code> was declared <i>inside</i> the function <code>hello</code>, and its symbol name contains <code>5hello</code>. Its scope is the function, but it lives in the same static section as the global one.</li>
+    <li>They are 16 bytes each because a <code>&amp;str</code> is a fat pointer (address + length). The letters themselves are in <code>__cstring</code>.</li>
+    <li>The odd <code>__ZN...17h...E</code> wrapping is <b>name mangling</b>: the compiler adds the module path and a hash so names never clash.</li>
+  </ul>
+  <p>On Linux the same sections are called <code>.text</code>, <code>.rodata</code>, <code>.data</code> and <code>.bss</code>. Use <code>size -A</code> and <code>nm</code> there.</p>
+
   <div class="quiz">
     <h2>Check yourself</h2>
     <details><summary>Is a string literal on the stack, heap, or static?</summary>Static (read-only). A <code>&amp;str</code> variable on the stack just points at it.</details>
     <details><summary>After a function with a local <code>static</code> returns, is the static's memory freed?</summary>No. The memory lives for the whole program. Only the <i>name</i> stops being usable outside that function.</details>
     <details><summary>What does <code>String::from("hi")</code> do in memory?</summary>Allocates a heap block and <b>copies</b> the bytes of the static literal "hi" into it. Now there are two copies: one static, one on the heap.</details>
+    <details><summary>Why does the BSS section take almost no space in the program file?</summary>It only holds zeros, so the file just records "this many zero bytes", and the OS creates zeroed pages when the program starts.</details>
     <details><summary>Why can't <code>static V: Vec&lt;i32&gt; = vec![1];</code> compile?</summary><code>vec!</code> needs the heap at runtime, but a static's value must be fully known at compile time.</details>
   </div>
 </main>
